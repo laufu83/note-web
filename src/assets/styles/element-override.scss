@@ -1,0 +1,71 @@
+// Element Plus 样式覆盖
+
+// 按钮
+.el-button--primary {
+  background-color: $primary-color;
+  border-color: $primary-color;
+}
+
+.el-button--primary:hover {
+  background-color: $primary-dark;
+  border-color: $primary-dark;
+}
+
+// 菜单
+.el-menu {
+  border-right: none;
+}
+
+.el-menu-item.is-active {
+  background-color: rgba(102, 126, 234, 0.15) !important;
+}
+
+// 表格
+.el-table {
+  border-radius: $border-radius;
+}
+
+.el-table th.el-table__cell {
+  background-color: #f7fafc;
+  font-weight: 600;
+}
+
+// 弹窗
+.el-dialog {
+  border-radius: $border-radius;
+}
+
+.el-dialog__header {
+  border-bottom: 1px solid $border-color;
+  padding: $spacing-md $spacing-lg;
+}
+
+.el-dialog__body {
+  padding: $spacing-lg;
+}
+
+.el-dialog__footer {
+  border-top: 1px solid $border-color;
+  padding: $spacing-md $spacing-lg;
+}
+
+// 标签
+.el-tag {
+  border: none;
+}
+
+// 输入框
+.el-input__wrapper {
+  border-radius: $border-radius;
+}
+
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+// 分页
+.el-pagination {
+  .el-pagination__total {
+    color: $text-muted;
+  }
+}
