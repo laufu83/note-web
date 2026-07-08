@@ -1,3 +1,5 @@
+// src/store/modules/note.ts
+
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { NoteInfo } from '@/types'
@@ -8,6 +10,11 @@ export const useNoteStore = defineStore('note', () => {
   const notes = ref<NoteInfo[]>([])
   const total = ref(0)
   const loading = ref(false)
+  const refreshKey = ref(0)
+
+  function forceRefresh() {
+    refreshKey.value++
+  }
 
   async function loadNotes(params: any) {
     loading.value = true
@@ -34,6 +41,7 @@ export const useNoteStore = defineStore('note', () => {
 
   async function createNote(data: any) {
     const note = await noteApi.create(data)
+    forceRefresh()
     return note
   }
 
@@ -42,6 +50,7 @@ export const useNoteStore = defineStore('note', () => {
     if (currentNote.value?.id === id) {
       currentNote.value = note
     }
+    forceRefresh()
     return note
   }
 
@@ -51,6 +60,7 @@ export const useNoteStore = defineStore('note', () => {
     if (currentNote.value?.id === id) {
       currentNote.value = null
     }
+    forceRefresh()
   }
 
   function clearCurrentNote() {
@@ -62,6 +72,8 @@ export const useNoteStore = defineStore('note', () => {
     notes,
     total,
     loading,
+    refreshKey,
+    forceRefresh,
     loadNotes,
     loadNote,
     createNote,

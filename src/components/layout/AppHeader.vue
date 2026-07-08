@@ -1,30 +1,30 @@
+<!-- src/components/layout/AppHeader.vue -->
+
 <template>
-  <div class="header">
+  <div class="app-header">
     <div class="header-left">
-      <el-button :icon="appStore.sidebarCollapsed ? 'Expand' : 'Fold'" @click="appStore.toggleSidebar()" text />
-      <span class="header-title">{{ route.name || '个人云笔记' }}</span>
+      <el-button text @click="appStore.toggleSidebar">
+        <el-icon><Expand /></el-icon>
+      </el-button>
+      <span class="header-breadcrumb">{{ breadcrumb }}</span>
     </div>
 
     <div class="header-right">
+      <el-button text size="small" @click="focusSearch">
+        <el-icon><Search /></el-icon>
+      </el-button>
+
+      <CreateMenu @create-folder="handleCreateFolder" />
+
       <el-dropdown @command="handleCommand">
-        <span class="user-info">
-          <el-avatar :size="32" :src="userStore.userInfo?.avatarUrl || undefined">
-            {{ userStore.nickname?.charAt(0)?.toUpperCase() || 'U' }}
-          </el-avatar>
-          <span class="user-name">{{ userStore.nickname || userStore.username }}</span>
-          <el-icon><ArrowDown /></el-icon>
-        </span>
+        <el-avatar :size="28" :src="userStore.userInfo?.avatarUrl || undefined">
+          {{ userStore.nickname?.charAt(0)?.toUpperCase() || 'U' }}
+        </el-avatar>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item command="profile">
-              <el-icon><User /></el-icon> 个人信息
-            </el-dropdown-item>
-            <el-dropdown-item command="settings">
-              <el-icon><Setting /></el-icon> 设置
-            </el-dropdown-item>
-            <el-dropdown-item divided command="logout">
-              <el-icon><SwitchButton /></el-icon> 退出登录
-            </el-dropdown-item>
+            <el-dropdown-item command="profile">个人信息</el-dropdown-item>
+            <el-dropdown-item command="settings">设置</el-dropdown-item>
+            <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>
@@ -33,36 +33,69 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowDown, User, Setting, SwitchButton } from '@element-plus/icons-vue'
+import { Expand, Search } from '@element-plus/icons-vue'
 import { useAppStore } from '@/store/modules/app'
 import { useUserStore } from '@/store/modules/user'
+import { useFolderStore } from '@/store/modules/folder'
+import CreateMenu from '@/components/business/CreateMenu.vue'
 
 const router = useRouter()
 const route = useRoute()
 const appStore = useAppStore()
 const userStore = useUserStore()
+const folderStore = useFolderStore()
+
+const breadcrumb = computed(() => {
+  const path = route.path
+  if (path === '/') return '全部笔记'
+  if (path.startsWith('/folder/')) {
+    const id = path.split('/')[2]
+    const folder = folderStore.tree.find(f => f.id === id)
+    return folder?.name || '文件夹'
+  }
+  if (path.startsWith('/note/')) return '笔记详情'
+  if (path === '/starred') return '⭐ 星标笔记'
+  if (path === '/trash') return '🗑️ 回收站'
+  if (path === '/settings') return '⚙️ 设置'
+  if (path === '/templates') return '📋 笔记模板'
+  return '我的笔记'
+})
+
+// ✅ 修复 focus 类型错误
+function focusSearch() {
+  const input = document.querySelector('.middle-column .el-input__inner') as HTMLInputElement | null
+  if (input) {
+    input.focus()
+  }
+}
+
+function handleCreateFolder() {
+  ElMessage.info('新建文件夹')
+}
 
 async function handleCommand(command: string) {
   if (command === 'logout') {
     await userStore.logout()
-    ElMessage.success('已退出登录')
     router.push('/login')
-  } else if (command === 'profile') {
-    router.push('/settings')
-  } else if (command === 'settings') {
+  } else {
     router.push('/settings')
   }
 }
 </script>
 
 <style scoped>
-.header {
+.app-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  width: 100%;
+  padding: 0 20px;
+  height: 48px;
+  background: #ffffff;
+  border-bottom: 1px solid #e8e8e8;
+  flex-shrink: 0;
 }
 
 .header-left {
@@ -71,34 +104,15 @@ async function handleCommand(command: string) {
   gap: 12px;
 }
 
-.header-title {
-  font-size: 16px;
+.header-breadcrumb {
+  font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: #1d1d1f;
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 4px 12px;
-  border-radius: 20px;
-  transition: background 0.2s;
-}
-
-.user-info:hover {
-  background: #f0f0f0;
-}
-
-.user-name {
-  font-size: 14px;
-  color: #333;
+  gap: 12px;
 }
 </style>

@@ -1,249 +1,217 @@
-<!-- src/views/layout/FolderView.vue -->
+<!-- src/components/layout/MiddleColumn.vue -->
 
 <template>
-  <div class="folder-view">
-    <!-- ============================================================
-    左侧：中间列（原 MiddleColumn）
-    ============================================================ -->
-    <div class="middle-column" :class="{ expanded: appStore.sidebarCollapsed }">
-      <!-- 第一行：搜索框 + 右侧菜单图标按钮 -->
-      <div class="search-bar-wrap">
-        <div class="column-search">
-          <el-input
-            v-model="searchKeyword"
-            placeholder="搜索笔记 Ctrl+Shift+F"
-            size="small"
-            prefix-icon="Search"
-            clearable
-            @input="handleSearch"
-            class="search-input"
-          />
+  <div class="middle-column">
+    <!-- 第一行：搜索框 + 右侧菜单图标按钮 -->
+    <div class="search-bar-wrap">
+      <div class="column-search">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="搜索笔记 Ctrl+Shift+F"
+          size="small"
+          prefix-icon="Search"
+          clearable
+          @input="handleSearch"
+          class="search-input"
+        />
+      </div>
+      <!-- 右侧三横线菜单按钮 -->
+      <el-dropdown trigger="click" popper-append-to-body>
+        <el-button text class="menu-icon-btn">
+          <el-icon size="20"><Menu /></el-icon>
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu class="parent-main-menu">
+            <el-dropdown trigger="hover" split-button class="view-sub-dropdown">
+              <template #default>
+                <el-dropdown-item class="menu-main-item">
+                  列表展示
+                  <el-icon class="item-right-arrow"><ArrowRight /></el-icon>
+                </el-dropdown-item>
+              </template>
+              <template #dropdown>
+                <el-dropdown-menu class="view-sub-menu">
+                  <el-dropdown-item command="preview" :class="{ active: viewMode === 'preview' }">摘要</el-dropdown-item>
+                  <el-dropdown-item command="list" :class="{ active: viewMode === 'list' }">列表</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+
+            <el-dropdown trigger="hover" split-button class="sort-sub-dropdown">
+              <template #default>
+                <el-dropdown-item class="menu-main-item">
+                  排序方式
+                  <el-icon class="item-right-arrow"><ArrowRight /></el-icon>
+                </el-dropdown-item>
+              </template>
+              <template #dropdown>
+                <el-dropdown-menu class="sort-sub-menu">
+                  <el-dropdown-item
+                    v-for="item in sortOptions"
+                    :key="item.value"
+                    :command="item.value"
+                    :class="{ active: sortBy === item.value }"
+                    @click="handleSortChange(item.value)"
+                  >
+                    {{ item.label }}
+                    <el-icon v-if="sortBy === item.value" class="sort-arrow"><ArrowDown /></el-icon>
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+    </div>
+
+    <!-- 第二行：文件夹头部栏 -->
+    <div class="column-header">
+      <div class="header-left">
+        <!-- 返回按钮 -->
+        <el-button
+          v-if="showBackButton"
+          size="small"
+          text
+          @click="goBack"
+          class="back-btn"
+        >
+          <el-icon><ArrowLeft /></el-icon>
+        </el-button>
+
+        <span class="header-icon">{{ currentIcon }}</span>
+        <span class="header-title">{{ currentTitle }}</span>
+        <span class="header-count">{{ total }}</span>
+      </div>
+    </div>
+
+    <!-- 笔记/文件夹列表区域 -->
+    <div class="column-list" v-loading="loading">
+      <div v-if="refreshing" class="refresh-indicator">
+        <el-icon class="is-loading"><Loading /></el-icon>
+        刷新中...
+      </div>
+
+      <!-- 文件夹列表 -->
+      <div
+        v-if="showFolders"
+        v-for="folder in folders"
+        :key="folder.id"
+        class="list-item folder-item"
+        @click="goToFolder(folder.id)"
+      >
+        <span class="item-icon">📁</span>
+        <div class="item-info">
+          <div class="item-title">{{ folder.name }}</div>
+          <div class="item-meta">{{ folder.noteCount || 0 }} 篇笔记</div>
         </div>
-        <el-dropdown trigger="click" popper-append-to-body>
-          <el-button text class="menu-icon-btn">
-            <el-icon size="20"><Menu /></el-icon>
+        <el-dropdown trigger="click" @command="(cmd: string) => handleFolderAction(cmd, folder)" @click.stop>
+          <el-button size="small" text class="more-btn">
+            <el-icon><MoreFilled /></el-icon>
           </el-button>
           <template #dropdown>
-            <el-dropdown-menu class="parent-main-menu">
-              <el-dropdown trigger="hover" split-button class="view-sub-dropdown">
-                <template #default>
-                  <el-dropdown-item class="menu-main-item">
-                    列表展示
-                    <el-icon class="item-right-arrow"><ArrowRight /></el-icon>
-                  </el-dropdown-item>
-                </template>
-                <template #dropdown>
-                  <el-dropdown-menu class="view-sub-menu">
-                    <el-dropdown-item command="preview" :class="{ active: viewMode === 'preview' }">摘要</el-dropdown-item>
-                    <el-dropdown-item command="list" :class="{ active: viewMode === 'list' }">列表</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-
-              <el-dropdown trigger="hover" split-button class="sort-sub-dropdown">
-                <template #default>
-                  <el-dropdown-item class="menu-main-item">
-                    排序方式
-                    <el-icon class="item-right-arrow"><ArrowRight /></el-icon>
-                  </el-dropdown-item>
-                </template>
-                <template #dropdown>
-                  <el-dropdown-menu class="sort-sub-menu">
-                    <el-dropdown-item
-                      v-for="item in sortOptions"
-                      :key="item.value"
-                      :command="item.value"
-                      :class="{ active: sortBy === item.value }"
-                      @click="handleSortChange(item.value)"
-                    >
-                      {{ item.label }}
-                      <el-icon v-if="sortBy === item.value" class="sort-arrow"><ArrowDown /></el-icon>
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="open">📂 打开</el-dropdown-item>
+              <el-dropdown-item divided command="rename">✏️ 重命名</el-dropdown-item>
+              <el-dropdown-item command="move">📤 移动到</el-dropdown-item>
+              <el-dropdown-item command="copy">📋 复制</el-dropdown-item>
+              <el-dropdown-item command="share">🔗 分享</el-dropdown-item>
+              <el-dropdown-item command="export">📥 导出</el-dropdown-item>
+              <el-dropdown-item divided command="delete" style="color: #e74c3c">🗑️ 删除</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
       </div>
 
-      <!-- 第二行：文件夹头部栏 -->
-      <div class="column-header">
-        <div class="header-left">
-          <el-button
-            v-if="showBackButton"
-            size="small"
-            text
-            @click="goBack"
-            class="back-btn"
-          >
-            <el-icon><ArrowLeft /></el-icon>
-          </el-button>
-        </div>
-        
-        <div class="header-center">
-          <span class="header-title">{{ currentTitle }}</span>
-        </div>
-        
-        <div class="header-right">
-          <span class="header-count">{{ total }}</span>
-        </div>
-      </div>
-
-      <!-- 笔记/文件夹列表区域 -->
-      <div class="column-list" v-loading="loading">
-        <div v-if="refreshing" class="refresh-indicator">
-          <el-icon class="is-loading"><Loading /></el-icon>
-          刷新中...
-        </div>
-
-        <!-- 文件夹列表 -->
-        <div
-          v-if="showFolders"
-          v-for="folder in folders"
-          :key="folder.id"
-          class="list-item folder-item"
-          @click="goToFolder(folder.id)"
-        >
-          <span class="item-icon">📁</span>
-          <div class="item-info">
-            <div class="item-title">{{ folder.name }}</div>
-            <div class="item-meta">{{ folder.noteCount || 0 }} 篇笔记</div>
-          </div>
-          <el-dropdown trigger="click" @command="(cmd: string) => handleFolderAction(cmd, folder)" @click.stop>
-            <el-button size="small" text class="more-btn">
-              <el-icon><MoreFilled /></el-icon>
-            </el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="open">📂 打开</el-dropdown-item>
-                <el-dropdown-item divided command="rename">✏️ 重命名</el-dropdown-item>
-                <el-dropdown-item command="move">📤 移动到</el-dropdown-item>
-                <el-dropdown-item command="copy">📋 复制</el-dropdown-item>
-                <el-dropdown-item command="share">🔗 分享</el-dropdown-item>
-                <el-dropdown-item command="export">📥 导出</el-dropdown-item>
-                <el-dropdown-item divided command="delete" style="color: #e74c3c">🗑️ 删除</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-
-        <!-- 笔记列表 -->
-        <div
-          v-for="note in displayNotes"
-          :key="note.id"
-          class="list-item note-item"
-          :class="{ active: selectedNoteId === note.id, selected: selectedIds.includes(note.id) }"
-          @click="handleNoteClick(note)"
-        >
-          <el-checkbox
-            v-if="isSelectionMode"
-            :model-value="selectedIds.includes(note.id)"
-            @click.stop
-            @change="(val: boolean) => toggleNoteSelection(note.id, val)"
-            size="small"
-          />
-          <span class="item-icon">{{ note.isStarred ? '⭐' : '📄' }}</span>
-
-          <template v-if="viewMode === 'list'">
-            <div class="item-info">
-              <div class="item-title">{{ note.title || '无标题笔记' }}</div>
-              <div class="item-meta">
-                <span class="meta-date">{{ formatDate(note.updatedAt) }}</span>
-                <span v-if="note.wordCount" class="meta-size">{{ note.wordCount }} 字</span>
-                <span v-if="note.tags?.length" class="meta-tags">
-                  <el-tag
-                    v-for="tag in note.tags.slice(0, 2)"
-                    :key="tag.id"
-                    size="small"
-                    :color="tag.color"
-                    style="margin: 0 2px; border: none"
-                  >
-                    {{ tag.name }}
-                  </el-tag>
-                  <span v-if="note.tags.length > 2" class="tag-more">+{{ note.tags.length - 2 }}</span>
-                </span>
-              </div>
-            </div>
-          </template>
-
-          <template v-else>
-            <div class="item-info preview-mode">
-              <div class="item-title">{{ note.title || '无标题笔记' }}</div>
-              <div class="item-preview">{{ note.summary || note.contentPlain?.slice(0, 80) || '开始写作...' }}</div>
-              <div class="item-meta">
-                <span class="meta-date">{{ formatDate(note.updatedAt) }}</span>
-                <span v-if="note.wordCount" class="meta-size">{{ note.wordCount }} 字</span>
-              </div>
-            </div>
-          </template>
-
-          <el-dropdown trigger="click" @command="(cmd: string) => handleNoteAction(cmd, note)" @click.stop>
-            <el-button size="small" text class="more-btn">
-              <el-icon><MoreFilled /></el-icon>
-            </el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="open">📄 打开</el-dropdown-item>
-                <el-dropdown-item command="star" :style="{ color: note.isStarred ? '#e6a23c' : '' }">
-                  {{ note.isStarred ? '⭐ 取消星标' : '☆ 加星' }}
-                </el-dropdown-item>
-                <el-dropdown-item divided command="rename">✏️ 重命名</el-dropdown-item>
-                <el-dropdown-item command="move">📤 移动到</el-dropdown-item>
-                <el-dropdown-item command="copy">📋 复制</el-dropdown-item>
-                <el-dropdown-item command="share">🔗 分享</el-dropdown-item>
-                <el-dropdown-item command="export">📥 导出</el-dropdown-item>
-                <el-dropdown-item command="archive">📦 归档</el-dropdown-item>
-                <el-dropdown-item divided command="delete" style="color: #e74c3c">🗑️ 删除</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-
-        <!-- 空状态 -->
-        <div v-if="!loading && displayNotes.length === 0 && (showFolders ? folders.length === 0 : true)" class="empty-state">
-          <div class="empty-svg">
-            <svg width="120" height="120" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M25 15H65L75 25V85H25V15Z" fill="#F2F3F5" stroke="#DCDFE6" stroke-width="1.5"/>
-              <path d="M65 15V25H75" fill="#F2F3F5" stroke="#DCDFE6" stroke-width="1.5"/>
-              <circle cx="45" cy="50" r="12" fill="#ECF5FF" stroke="#409EFF" stroke-width="1.5"/>
-              <text x="41" y="54" font-size="14" fill="#409EFF" font-family="sans-serif">?</text>
-              <path d="M55 62L70 77" stroke="#DCDFE6" stroke-width="2" stroke-linecap="round"/>
-              <path d="M30 38H60M30 45H55M30 58H62" stroke="#DCDFE6" stroke-width="1.2" stroke-linecap="round"/>
-            </svg>
-          </div>
-          <p class="empty-tip">{{ emptyText }}</p>
-          <el-button type="primary" size="default" @click="createNewNote" class="empty-create-btn">{{ emptyButtonText }}</el-button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ============================================================
-    右侧：笔记详情
-    ============================================================ -->
-    <div class="right-column" :class="{ expanded: appStore.sidebarCollapsed }">
-      <router-view
-        :key="$route.fullPath"
-        v-slot="{ Component, route: currentRoute }"
+      <!-- 笔记列表 -->
+      <div
+        v-for="note in displayNotes"
+        :key="note.id"
+        class="list-item note-item"
+        :class="{ active: selectedNoteId === note.id, selected: selectedIds.includes(note.id) }"
+        @click="handleNoteClick(note)"
       >
-        <component
-          :is="Component"
-          :note-id="getNoteId(currentRoute)"
-          :folder-id="getFolderId(currentRoute)"
-          :is-new="getIsNew(currentRoute)"
-          @note-created="handleNoteCreated"
-          @note-updated="handleNoteUpdated"
-          @note-deleted="handleNoteDeleted"
-          @clear-new-note="handleClearNewNote"
-          @cancel="handleNoteCancel"
-          @save="handleNoteUpdated"
+        <el-checkbox
+          v-if="isSelectionMode"
+          :model-value="selectedIds.includes(note.id)"
+          @click.stop
+          @change="(val: boolean) => toggleNoteSelection(note.id, val)"
+          size="small"
         />
-      </router-view>
+        <span class="item-icon">{{ note.isStarred ? '⭐' : '📄' }}</span>
+
+        <template v-if="viewMode === 'list'">
+          <div class="item-info">
+            <div class="item-title">{{ note.title || '无标题笔记' }}</div>
+            <div class="item-meta">
+              <span class="meta-date">{{ formatDate(note.updatedAt) }}</span>
+              <span v-if="note.wordCount" class="meta-size">{{ note.wordCount }} 字</span>
+              <span v-if="note.tags?.length" class="meta-tags">
+                <el-tag
+                  v-for="tag in note.tags.slice(0, 2)"
+                  :key="tag.id"
+                  size="small"
+                  :color="tag.color"
+                  style="margin: 0 2px; border: none"
+                >
+                  {{ tag.name }}
+                </el-tag>
+                <span v-if="note.tags.length > 2" class="tag-more">+{{ note.tags.length - 2 }}</span>
+              </span>
+            </div>
+          </div>
+        </template>
+
+        <template v-else>
+          <div class="item-info preview-mode">
+            <div class="item-title">{{ note.title || '无标题笔记' }}</div>
+            <div class="item-preview">{{ note.summary || note.contentPlain?.slice(0, 80) || '开始写作...' }}</div>
+            <div class="item-meta">
+              <span class="meta-date">{{ formatDate(note.updatedAt) }}</span>
+              <span v-if="note.wordCount" class="meta-size">{{ note.wordCount }} 字</span>
+            </div>
+          </div>
+        </template>
+
+        <el-dropdown trigger="click" @command="(cmd: string) => handleNoteAction(cmd, note)" @click.stop>
+          <el-button size="small" text class="more-btn">
+            <el-icon><MoreFilled /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="open">📄 打开</el-dropdown-item>
+              <el-dropdown-item command="star" :style="{ color: note.isStarred ? '#e6a23c' : '' }">
+                {{ note.isStarred ? '⭐ 取消星标' : '☆ 加星' }}
+              </el-dropdown-item>
+              <el-dropdown-item divided command="rename">✏️ 重命名</el-dropdown-item>
+              <el-dropdown-item command="move">📤 移动到</el-dropdown-item>
+              <el-dropdown-item command="copy">📋 复制</el-dropdown-item>
+              <el-dropdown-item command="share">🔗 分享</el-dropdown-item>
+              <el-dropdown-item command="export">📥 导出</el-dropdown-item>
+              <el-dropdown-item command="archive">📦 归档</el-dropdown-item>
+              <el-dropdown-item divided command="delete" style="color: #e74c3c">🗑️ 删除</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
+
+      <!-- 空状态 -->
+      <div v-if="!loading && displayNotes.length === 0 && (showFolders ? folders.length === 0 : true)" class="empty-state">
+        <div class="empty-svg">
+          <svg width="120" height="120" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M25 15H65L75 25V85H25V15Z" fill="#F2F3F5" stroke="#DCDFE6" stroke-width="1.5"/>
+            <path d="M65 15V25H75" fill="#F2F3F5" stroke="#DCDFE6" stroke-width="1.5"/>
+            <circle cx="45" cy="50" r="12" fill="#ECF5FF" stroke="#409EFF" stroke-width="1.5"/>
+            <text x="41" y="54" font-size="14" fill="#409EFF" font-family="sans-serif">?</text>
+            <path d="M55 62L70 77" stroke="#DCDFE6" stroke-width="2" stroke-linecap="round"/>
+            <path d="M30 38H60M30 45H55M30 58H62" stroke="#DCDFE6" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <p class="empty-tip">{{ emptyText }}</p>
+        <el-button type="primary" size="default" @click="createNewNote" class="empty-create-btn">{{ emptyButtonText }}</el-button>
+      </div>
     </div>
 
-    <!-- ============================================================
-    弹窗
-    ============================================================ -->
+    <!-- 弹窗 -->
     <el-dialog v-model="showFilterDialog" title="高级筛选" width="420px">
       <el-form label-width="80px" size="small">
         <el-form-item label="笔记类型">
@@ -309,12 +277,9 @@
         check-strictly
         style="width: 100%"
       />
-      <div v-if="moveSourceType === 'folder'" style="font-size: 12px; color: #999; margin-top: 8px;">
-        提示：不能移动到自身或子文件夹
-      </div>
       <template #footer>
         <el-button @click="showMoveDialog = false">取消</el-button>
-        <el-button type="primary" @click="confirmMove">确认移动</el-button>
+        <el-button type="primary" @click="confirmMove">确认</el-button>
       </template>
     </el-dialog>
 
@@ -339,7 +304,6 @@ import {
   ArrowRight,
   Menu
 } from '@element-plus/icons-vue'
-import { useAppStore } from '@/store/modules/app'
 import { useFolderStore } from '@/store/modules/folder'
 import { useNoteStore } from '@/store/modules/note'
 import { useTagStore } from '@/store/modules/tag'
@@ -351,22 +315,11 @@ type FolderCommand = 'open' | 'rename' | 'move' | 'copy' | 'share' | 'export' | 
 type NoteCommand = 'open' | 'star' | 'rename' | 'move' | 'copy' | 'share' | 'export' | 'archive' | 'delete'
 
 // ============================================================
-// 特殊目录列表
-// ============================================================
-
-const SPECIAL_FOLDERS = ['recent', 'starred', 'trash'] as const
-
-const isSpecialFolder = (id: string | null): boolean => {
-  return id !== null && SPECIAL_FOLDERS.includes(id as any)
-}
-
-// ============================================================
 // Store & Router
 // ============================================================
 
 const router = useRouter()
 const route = useRoute()
-const appStore = useAppStore()
 const folderStore = useFolderStore()
 const noteStore = useNoteStore()
 const tagStore = useTagStore()
@@ -376,60 +329,41 @@ const tagStore = useTagStore()
 // ============================================================
 
 const props = defineProps<{
-  folderId?: string
+  selectedNoteId?: string | null
 }>()
 
 const emit = defineEmits<{
-  (e: 'note-created'): void
-  (e: 'note-updated'): void
-  (e: 'note-deleted'): void
-  (e: 'clear-new-note'): void
+  (e: 'create-folder', parentId: string | null): void
+  (e: 'create-note', folderId: string | null): void
+  (e: 'select-item', type: 'note' | 'folder', id: string): void
+  (e: 'refresh'): void
+  (e: 'folder-status', hasContent: boolean): void  // ✅ 新增
 }>()
 
 // ============================================================
-// 从路由中提取参数
+// 从 URL 获取当前文件夹 ID
 // ============================================================
 
-function getFolderId(route: any): string | null {
-  return props.folderId || route.params.folderId || route.query.folderId || null
-}
+const currentFolderId = computed(() => {
+  return route.params.folderId as string || null
+})
 
-function getNoteId(route: any): string | null {
-  return route.params.noteId || route.params.id || null
-}
+const currentNoteId = computed(() => {
+  return route.params.noteId as string || null
+})
 
-function getIsNew(route: any): boolean {
-  const noteId = getNoteId(route)
-  return !noteId || noteId === '' || noteId === 'new'
-}
+// ✅ 判断视图类型
+const isRecentView = computed(() => currentFolderId.value === 'recent')
+const isStarredView = computed(() => currentFolderId.value === 'starred')
+const isTrashView = computed(() => currentFolderId.value === 'trash')
+const isNoteView = computed(() => {
+  return route.path.includes('/note/')
+})
 
 // ============================================================
 // 状态
 // ============================================================
 
-// 当前文件夹ID
-const currentFolderId = computed(() => {
-  return props.folderId || (route.params.folderId as string) || null
-})
-
-// 视图判断
-const isRecentView = computed(() => currentFolderId.value === 'recent')
-const isStarredView = computed(() => currentFolderId.value === 'starred')
-const isTrashView = computed(() => currentFolderId.value === 'trash')
-const isSpecialView = computed(() => {
-  const id = currentFolderId.value
-  return id === 'recent' || id === 'starred' || id === 'trash'
-})
-const isNotePage = computed(() => route.path.includes('/note'))
-const isEmptyPage = computed(() => route.path.includes('/empty'))
-
-const isFolderMainPage = computed(() => {
-  const id = currentFolderId.value
-  if (!id || isSpecialView.value) return false
-  return route.path === `/file/${id}`
-})
-
-// 数据状态
 const loading = ref(false)
 const refreshing = ref(false)
 const notes = ref<any[]>([])
@@ -445,9 +379,7 @@ const viewMode = ref<'list' | 'preview'>('list')
 const sortBy = ref('updatedAt_desc')
 const isSelectionMode = ref(false)
 const selectedIds = ref<string[]>([])
-const selectedNoteId = ref<string | null>(null)
 
-// 弹窗状态
 const showFilterDialog = ref(false)
 const filters = ref({
   type: '',
@@ -461,33 +393,28 @@ const renameValue = ref('')
 const renameTargetId = ref('')
 const renameTargetType = ref<'folder' | 'note'>('folder')
 
-// ✅ 移动相关状态 - 修复
 const showMoveDialog = ref(false)
-const moveTargetId = ref<string | null>(null)  // 目标文件夹ID
-const moveSourceId = ref('')  // 被移动的项目ID
-const moveSourceType = ref<'folder' | 'note'>('folder')  // 被移动的项目类型
+const moveTargetId = ref<string | null>(null)
+const moveTargetId_ = ref('')
+const moveTargetType = ref<'folder' | 'note'>('folder')
 
 const showShareDialog = ref(false)
 const shareTargetId = ref('')
 const shareTargetType = ref<'folder' | 'note'>('folder')
-
-// 跳转控制
-let statusTimer: number | null = null
-let isRedirecting = ref(false)
 
 // ============================================================
 // 排序选项
 // ============================================================
 
 const sortOptions = [
-  { label: '创建时间', value: 'createdAt_desc' },
-  { label: '修改时间', value: 'updatedAt_desc' },
-  { label: '文件名称', value: 'title_asc' },
-  { label: '文件大小', value: 'wordCount_desc' },
+  { label: '创建时间', value: 'created_at' },
+  { label: '修改时间', value: 'updated_at' },
+  { label: '文件名称', value: 'title' },
+  { label: '文件大小', value: 'wordCount' },
 ]
 
 // ============================================================
-// 计算属性
+// 当前视图
 // ============================================================
 
 const currentView = computed(() => {
@@ -497,94 +424,6 @@ const currentView = computed(() => {
   if (currentFolderId.value) return 'folder'
   if (route.path.includes('/note/')) return 'note'
   return 'all'
-})
-
-const currentIcon = computed(() => {
-  if (isStarredView.value) return '⭐'
-  if (isTrashView.value) return '🗑️'
-  if (isRecentView.value) return '🕐'
-  if (currentView.value === 'folder') return '📁'
-  return '📄'
-})
-
-const currentTitle = computed(() => {
-  if (isStarredView.value) return '⭐ 星标笔记'
-  if (isTrashView.value) return '🗑️ 回收站'
-  if (isRecentView.value) return '🕐 最近文件'
-  if (currentView.value === 'folder') {
-    return findFolderName(folderStore.tree, currentFolderId.value) || '文件夹'
-  }
-  return '全部笔记'
-})
-
-const emptyText = computed(() => {
-  if (isTrashView.value) return '回收站为空'
-  if (isStarredView.value) return '暂无星标笔记'
-  if (isRecentView.value) return '暂无最近文件'
-  return '暂无笔记'
-})
-
-const emptyButtonText = computed(() => {
-  if (isTrashView.value) return '返回笔记'
-  if (isStarredView.value) return '去写笔记'
-  if (isRecentView.value) return '创建第一篇笔记'
-  return '创建第一篇笔记'
-})
-
-const showFolders = computed(() => {
-  if (isRecentView.value) return false
-  if (isTrashView.value) return false
-  if (isStarredView.value) return false
-  return currentView.value === 'folder' && currentFolderId.value !== null
-})
-
-const showBackButton = computed(() => {
-  if (isRecentView.value) return true
-  if (isTrashView.value) return true
-  if (isStarredView.value) return true
-  if (currentView.value !== 'folder' || !currentFolderId.value) return false
-  const parentId = findFolderParentId(folderStore.tree, currentFolderId.value)
-  return !!parentId
-})
-
-const displayNotes = computed(() => {
-  const list = [...notes.value]
-  const [field, order] = sortBy.value.split('_')
-  list.sort((a, b) => {
-    let valA = a[field] || ''
-    let valB = b[field] || ''
-    if (field === 'title') {
-      valA = valA.toLowerCase()
-      valB = valB.toLowerCase()
-    }
-    if (order === 'desc') {
-      return valA > valB ? -1 : 1
-    }
-    return valA > valB ? 1 : -1
-  })
-  return list
-})
-
-// ✅ 文件夹树（排除自身和特殊目录）
-const folderTree = computed(() => {
-  const excludeId = moveSourceType.value === 'folder' ? moveSourceId.value : ''
-  
-  const filterSelf = (items: any[], excludeId: string): any[] => {
-    return items
-      .filter(i => {
-        // 排除自身
-        if (i.id === excludeId) return false
-        // 排除特殊目录
-        if (isSpecialFolder(i.id)) return false
-        return true
-      })
-      .map(i => ({
-        ...i,
-        children: i.children ? filterSelf(i.children, excludeId) : []
-      }))
-  }
-  
-  return filterSelf(folderStore.tree || [], excludeId)
 })
 
 // ============================================================
@@ -611,6 +450,108 @@ function findFolderParentId(items: any[], id: string): string | null {
   const folder = findFolderInTree(items, id)
   return folder?.parentId || null
 }
+
+// ============================================================
+// 当前图标和标题
+// ============================================================
+
+const currentIcon = computed(() => {
+  if (isStarredView.value) return '⭐'
+  if (isTrashView.value) return '🗑️'
+  if (isRecentView.value) return '🕐'
+  if (currentView.value === 'folder') return '📁'
+  if (currentView.value === 'note') return '📄'
+  return '📄'
+})
+
+const currentTitle = computed(() => {
+  if (isStarredView.value) return '⭐ 星标笔记'
+  if (isTrashView.value) return '🗑️ 回收站'
+  if (isRecentView.value) return '🕐 最近文件'
+  if (currentView.value === 'folder') {
+    return findFolderName(folderStore.tree, currentFolderId.value) || '文件夹'
+  }
+  if (currentView.value === 'note') {
+    if (currentNoteId.value && currentNoteId.value !== 'new') return '笔记详情'
+    return '新建笔记'
+  }
+  return '全部笔记'
+})
+
+const emptyText = computed(() => {
+  if (isTrashView.value) return '回收站为空'
+  if (isStarredView.value) return '暂无星标笔记'
+  if (isRecentView.value) return '暂无最近文件'
+  return '暂无笔记'
+})
+
+const emptyButtonText = computed(() => {
+  if (isTrashView.value) return '返回笔记'
+  if (isStarredView.value) return '去写笔记'
+  if (isRecentView.value) return '创建第一篇笔记'
+  return '创建第一篇笔记'
+})
+
+// ============================================================
+// 显示文件夹
+// ============================================================
+
+const showFolders = computed(() => {
+  if (isRecentView.value) return false
+  if (isTrashView.value) return false
+  if (isStarredView.value) return false
+  return currentView.value === 'folder' && currentFolderId.value !== null
+})
+
+// ============================================================
+// 返回按钮
+// ============================================================
+
+const showBackButton = computed(() => {
+  if (isRecentView.value) return true
+  if (isTrashView.value) return true
+  if (isStarredView.value) return true
+  if (currentView.value !== 'folder' || !currentFolderId.value) return false
+  const parentId = findFolderParentId(folderStore.tree, currentFolderId.value)
+  return !!parentId
+})
+
+// ============================================================
+// 显示笔记
+// ============================================================
+
+const displayNotes = computed(() => {
+  const list = [...notes.value]
+  const [field, order] = sortBy.value.split('_')
+  list.sort((a, b) => {
+    let valA = a[field] || ''
+    let valB = b[field] || ''
+    if (field === 'title') {
+      valA = valA.toLowerCase()
+      valB = valB.toLowerCase()
+    }
+    if (order === 'desc') {
+      return valA > valB ? -1 : 1
+    }
+    return valA > valB ? 1 : -1
+  })
+  return list
+})
+
+const folderTree = computed(() => {
+  if (moveTargetId_.value) {
+    const filterSelf = (items: any[], excludeId: string): any[] => {
+      return items
+        .filter(i => i.id !== excludeId)
+        .map(i => ({
+          ...i,
+          children: i.children ? filterSelf(i.children, excludeId) : []
+        }))
+    }
+    return filterSelf(folderStore.tree || [], moveTargetId_.value)
+  }
+  return folderStore.tree || []
+})
 
 // ============================================================
 // 导航方法
@@ -647,100 +588,25 @@ function createNewNote() {
   }
 }
 
-// ============================================================
-// 处理文件夹状态（核心逻辑）
-// ============================================================
-
-function handleFolderStatus(hasContent: boolean) {
-  const folderId = currentFolderId.value
-
-  // 只在普通文件夹视图处理
-  if (!folderId || isSpecialView.value) {
-    return
-  }
-
-  // 如果在 note 页面，不跳转
-  if (isNotePage.value) {
-    return
-  }
-
-  // 如果正在跳转中，跳过
-  if (isRedirecting.value) {
-    return
-  }
-
-  // 防抖
-  if (statusTimer) {
-    clearTimeout(statusTimer)
-    statusTimer = null
-  }
-
-  statusTimer = window.setTimeout(() => {
-    const currentPath = route.path
-    const emptyPath = `/file/${folderId}/empty`
-    const folderPath = `/file/${folderId}`
-
-    // 空文件夹 → 跳转到 empty（只在文件夹主页面触发）
-    if (!hasContent && isFolderMainPage.value && currentPath !== emptyPath) {
-      isRedirecting.value = true
-      router.replace(emptyPath)
-      setTimeout(() => {
-        isRedirecting.value = false
-      }, 500)
-    }
-    // 有内容 → 从 empty 跳转回文件夹
-    else if (hasContent && currentPath === emptyPath) {
-      isRedirecting.value = true
-      router.replace(folderPath)
-      setTimeout(() => {
-        isRedirecting.value = false
-      }, 500)
-    }
-  }, 300)
-}
-
-// ============================================================
-// 处理 URL 中的 noteId 选中
-// ============================================================
-
-function handleUrlNoteSelection() {
-  const urlNoteId = route.params.noteId as string | null
-  if (!urlNoteId) return
-  
-  const exists = notes.value.some(n => n.id === urlNoteId)
-  if (exists) {
-    selectedNoteId.value = urlNoteId
-  } else {
-    selectedNoteId.value = null
-  }
-}
-
-function selectFirstItem() {
-  const urlNoteId = route.params.noteId as string | null
-  
-  if (urlNoteId) {
-    const matchedNote = displayNotes.value.find(n => n.id === urlNoteId)
-    if (matchedNote) {
-      selectedNoteId.value = urlNoteId
-      return
-    }
-  }
-  
-  if (displayNotes.value.length > 0) {
-    selectedNoteId.value = displayNotes.value[0].id
-    return
-  }
-  if (folders.value.length > 0) {
-    selectedNoteId.value = null
-    return
-  }
-  selectedNoteId.value = null
+function openCreateFolder() {
+  emit('create-folder', currentFolderId.value)
 }
 
 // ============================================================
 // 数据加载
 // ============================================================
 
+function selectFirstItem() {
+  if (displayNotes.value.length > 0) {
+    emit('select-item', 'note', displayNotes.value[0].id)
+    return
+  }
+  if (folders.value.length > 0) {
+    emit('select-item', 'folder', folders.value[0].id)
+    return
+  }
+  emit('select-item', 'note', '')
+}
 async function loadData() {
   loading.value = true
   try {
@@ -748,49 +614,46 @@ async function loadData() {
     const tagResult = await tagStore.loadTags()
     tagList.value = tagResult.items || []
 
-    // 回收站
+    // ✅ 回收站
     if (isTrashView.value) {
       const res = await noteApi.getDeleted({ page: currentPage.value, pageSize: pageSize.value })
       notes.value = res.items
       total.value = res.pagination.total
-      await nextTick(() => {
-        selectFirstItem()
-        handleUrlNoteSelection()
-      })
+      await nextTick(selectFirstItem)
+      
+      // ✅ 触发状态
       const hasContent = notes.value.length > 0 || folders.value.length > 0
-      handleFolderStatus(hasContent)
+      emit('folder-status', hasContent)
       return
     }
 
-    // 星标笔记
+    // ✅ 星标笔记
     if (isStarredView.value) {
       const res = await noteApi.list({ page: currentPage.value, pageSize: pageSize.value, isStarred: 1 })
       notes.value = res.items
       total.value = res.pagination.total
-      await nextTick(() => {
-        selectFirstItem()
-        handleUrlNoteSelection()
-      })
+      await nextTick(selectFirstItem)
+      
+      // ✅ 触发状态
       const hasContent = notes.value.length > 0 || folders.value.length > 0
-      handleFolderStatus(hasContent)
+      emit('folder-status', hasContent)
       return
     }
 
-    // 最近文件
+    // ✅ 最近文件
     if (isRecentView.value) {
-      const res = await noteApi.list({ page: 1, pageSize: 50, orderBy: 'updated_at', orderDirection: 'desc' })
+      const res = await noteApi.list({ page: 1, pageSize: 50, orderBy: 'updatedAt', orderDirection: 'desc' })
       notes.value = res.items || []
       total.value = notes.value.length
-      await nextTick(() => {
-        selectFirstItem()
-        handleUrlNoteSelection()
-      })
+      await nextTick(selectFirstItem)
+      
+      // ✅ 触发状态
       const hasContent = notes.value.length > 0 || folders.value.length > 0
-      handleFolderStatus(hasContent)
+      emit('folder-status', hasContent)
       return
     }
 
-    // 文件夹视图
+    // ✅ 文件夹视图
     if (currentView.value === 'folder' && currentFolderId.value) {
       const folderRes = await folderApi.getChildren(currentFolderId.value, { page: 1, pageSize: 100 })
       folders.value = folderRes.items || []
@@ -805,34 +668,31 @@ async function loadData() {
       const noteRes = await noteApi.list(params)
       notes.value = noteRes.items
       total.value = noteRes.pagination.total
-      await nextTick(() => {
-        selectFirstItem()
-        handleUrlNoteSelection()
-      })
-
+      await nextTick(selectFirstItem)
+      
+      // ✅ 触发状态（关键修复）
       const hasContent = notes.value.length > 0 || folders.value.length > 0
-      handleFolderStatus(hasContent)
+      emit('folder-status', hasContent)
       return
     }
 
-    // 全部笔记
+    // ✅ 全部笔记
     const params: any = { page: currentPage.value, pageSize: pageSize.value }
     if (searchKeyword.value) params.keyword = searchKeyword.value
     applyFiltersToParams(params)
     const res = await noteApi.list(params)
     notes.value = res.items
     total.value = res.pagination.total
-    await nextTick(() => {
-      selectFirstItem()
-      handleUrlNoteSelection()
-    })
+    await nextTick(selectFirstItem)
 
+    // ✅ 触发状态
     const hasContent = notes.value.length > 0 || folders.value.length > 0
-    handleFolderStatus(hasContent)
+    emit('folder-status', hasContent)
   } finally {
     loading.value = false
   }
 }
+
 
 function applyFiltersToParams(params: any) {
   if (filters.value.type) params.type = filters.value.type
@@ -850,10 +710,28 @@ async function refreshData() {
   refreshing.value = true
   try {
     await loadData()
+    emit('refresh')
+    
+    // ✅ 刷新后再次触发状态
+    const hasContent = notes.value.length > 0 || folders.value.length > 0
+    emit('folder-status', hasContent)
   } finally {
     refreshing.value = false
   }
 }
+
+// ============================================================
+// 监听路由变化
+// ============================================================
+
+watch(
+  () => [currentFolderId.value, route.path],
+  () => {
+    currentPage.value = 1
+    refreshData()
+  },
+  { deep: true }
+)
 
 // ============================================================
 // 笔记点击
@@ -869,6 +747,7 @@ function handleNoteClick(note: any) {
     }
     return
   }
+  // 跳转到笔记详情
   if (currentFolderId.value) {
     router.push(`/file/${currentFolderId.value}/note/${note.id}`)
   } else {
@@ -880,9 +759,23 @@ function handleNoteClick(note: any) {
 // 视图切换
 // ============================================================
 
+function handleViewModeChange(cmd: string) {
+  viewMode.value = cmd as 'list' | 'preview'
+  localStorage.setItem('note_view_mode', viewMode.value)
+}
+
 function handleSortChange(val: string) {
   sortBy.value = val
   refreshData()
+}
+
+// ============================================================
+// 选择模式
+// ============================================================
+
+function toggleSelection() {
+  isSelectionMode.value = !isSelectionMode.value
+  if (!isSelectionMode.value) selectedIds.value = []
 }
 
 function toggleNoteSelection(id: string, checked: boolean) {
@@ -891,6 +784,31 @@ function toggleNoteSelection(id: string, checked: boolean) {
   } else {
     selectedIds.value = selectedIds.value.filter(sid => sid !== id)
   }
+}
+
+async function batchDelete() {
+  if (selectedIds.value.length === 0) {
+    ElMessage.warning('请先选择笔记')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确定删除选中 ${selectedIds.value.length} 篇笔记？`, '批量删除', { type: 'warning' })
+    for (const id of selectedIds.value) {
+      await noteApi.delete(id)
+    }
+    ElMessage.success(`删除 ${selectedIds.value.length} 篇笔记成功`)
+    selectedIds.value = []
+    isSelectionMode.value = false
+    refreshData()
+  } catch {}
+}
+
+async function batchMove() {
+  if (selectedIds.value.length === 0) {
+    ElMessage.warning('请先选择笔记')
+    return
+  }
+  showMoveDialog.value = true
 }
 
 // ============================================================
@@ -911,7 +829,7 @@ function resetFilters() {
 }
 
 // ============================================================
-// 文件夹操作 - 修复
+// 文件夹操作
 // ============================================================
 
 function handleRenameFolder(folder: any) {
@@ -922,14 +840,8 @@ function handleRenameFolder(folder: any) {
 }
 
 function handleMoveFolder(folder: any) {
-  // 检查是否为特殊目录
-  if (isSpecialFolder(folder.id)) {
-    ElMessage.warning('不能移动特殊目录')
-    return
-  }
-  
-  moveSourceId.value = folder.id
-  moveSourceType.value = 'folder'
+  moveTargetId_.value = folder.id
+  moveTargetType.value = 'folder'
   moveTargetId.value = folder.parentId || null
   showMoveDialog.value = true
 }
@@ -992,8 +904,8 @@ function handleRenameNote(note: any) {
 }
 
 function handleMoveNote(note: any) {
-  moveSourceId.value = note.id
-  moveSourceType.value = 'note'
+  moveTargetId_.value = note.id
+  moveTargetType.value = 'note'
   moveTargetId.value = note.folderId || null
   showMoveDialog.value = true
 }
@@ -1036,6 +948,7 @@ async function handleDeleteNote(note: any) {
     await noteApi.delete(note.id)
     ElMessage.success('删除成功')
     refreshData()
+    if (props.selectedNoteId === note.id) emit('select-item', 'note', '')
   } catch {}
 }
 
@@ -1099,51 +1012,28 @@ async function confirmRename() {
   } catch {}
 }
 
-// ✅ 确认移动 - 修复
 async function confirmMove() {
   try {
-    const targetId = moveTargetId.value
-    const sourceId = moveSourceId.value
-    
-    if (!sourceId) {
-      ElMessage.warning('请选择要移动的项目')
-      return
-    }
-    
-    // 检查：不能移动到自身
-    if (moveSourceType.value === 'folder' && targetId === sourceId) {
-      ElMessage.warning('不能将文件夹移动到自己')
-      return
-    }
-
-    // 检查：不能移动到特殊目录
-    if (targetId && isSpecialFolder(targetId)) {
-      ElMessage.warning('不能移动到特殊目录')
-      return
-    }
-
-    if (moveSourceType.value === 'folder') {
-      // 移动文件夹
-      await folderApi.update(sourceId, { parentId: targetId })
-      await folderStore.loadTree()
-      ElMessage.success('文件夹移动成功')
+    if (isSelectionMode.value && selectedIds.value.length > 0) {
+      for (const id of selectedIds.value) {
+        await noteApi.update(id, { folderId: moveTargetId.value })
+      }
+      ElMessage.success(`移动 ${selectedIds.value.length} 篇笔记成功`)
+      selectedIds.value = []
+      isSelectionMode.value = false
     } else {
-      // 移动笔记
-      await noteApi.update(sourceId, { folderId: targetId })
-      ElMessage.success('笔记移动成功')
+      const targetId = moveTargetId.value
+      if (moveTargetType.value === 'folder') {
+        await folderApi.update(moveTargetId_.value, { parentId: targetId })
+        await folderStore.loadTree()
+      } else {
+        await noteApi.update(moveTargetId_.value, { folderId: targetId })
+      }
+      ElMessage.success('移动成功')
     }
-    
-    // 刷新数据
     refreshData()
     showMoveDialog.value = false
-    
-    // 如果移动的是文件夹且目标存在，跳转到目标
-    if (moveSourceType.value === 'folder' && targetId) {
-      router.push(`/file/${targetId}`)
-    }
-  } catch (error: any) {
-    ElMessage.error(error?.message || '移动失败，请重试')
-  }
+  } catch {}
 }
 
 function onShareSuccess() {
@@ -1163,103 +1053,6 @@ function handleSearch() {
 }
 
 // ============================================================
-// 事件处理（来自子组件/路由）
-// ============================================================
-
-function handleNoteCreated() {
-  refreshData()
-  emit('note-created')
-}
-
-function handleNoteUpdated() {
-  refreshData()
-  emit('note-updated')
-}
-
-function handleNoteDeleted() {
-  refreshData()
-  emit('note-deleted')
-  if (currentFolderId.value && !isSpecialView.value) {
-    router.push(`/file/${currentFolderId.value}`)
-  } else {
-    router.push('/')
-  }
-}
-
-function handleClearNewNote() {
-  if (currentFolderId.value && !isSpecialView.value) {
-    router.push(`/file/${currentFolderId.value}`)
-  } else {
-    router.push('/')
-  }
-  emit('clear-new-note')
-}
-
-function handleNoteCancel() {
-  if (currentFolderId.value && !isSpecialView.value) {
-    router.push(`/file/${currentFolderId.value}`)
-  } else {
-    router.push('/')
-  }
-}
-
-// ============================================================
-// 监听
-// ============================================================
-
-watch(
-  () => currentFolderId.value,
-  () => {
-    isRedirecting.value = false
-    refreshData()
-  },
-  { immediate: true }
-)
-
-watch(
-  () => route.path,
-  (newPath, oldPath) => {
-    const folderId = currentFolderId.value
-    if (!folderId || isSpecialView.value) return
-
-    const wasNotePage = oldPath?.includes('/note')
-    const isNowFolderMain = newPath === `/file/${folderId}`
-
-    if (wasNotePage && isNowFolderMain) {
-      isRedirecting.value = false
-      setTimeout(() => {
-        refreshData()
-      }, 300)
-    }
-    
-    const noteId = route.params.noteId as string | null
-    if (noteId && newPath.includes('/note/')) {
-      const exists = notes.value.some(n => n.id === noteId)
-      if (exists) {
-        selectedNoteId.value = noteId
-      }
-    }
-  }
-)
-
-watch(
-  () => route.params.noteId,
-  (newNoteId) => {
-    if (newNoteId) {
-      const exists = notes.value.some(n => n.id === newNoteId)
-      if (exists) {
-        selectedNoteId.value = newNoteId as string
-      } else {
-        refreshData()
-      }
-    } else {
-      selectFirstItem()
-    }
-  },
-  { immediate: false }
-)
-
-// ============================================================
 // 生命周期
 // ============================================================
 
@@ -1269,61 +1062,23 @@ onMounted(async () => {
   if (folderStore.tree.length === 0 && !folderStore.loading) {
     await folderStore.loadTree()
   }
-  refreshData()
+  loadData()
 })
 
-// ============================================================
-// 暴露方法
-// ============================================================
-
-defineExpose({
-  refresh: refreshData,
-  loadData
-})
+defineExpose({ refresh: refreshData, loadData })
 </script>
 
 <style scoped>
-.folder-view {
-  display: flex;
-  height: 100%;
-  background: #ffffff;
-  overflow: hidden;
-  flex: 1;
-}
-
 .middle-column {
-  width: 340px;
-  min-width: 340px;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   background: #ffffff;
   border-right: 1px solid #e8e8e8;
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  overflow: hidden;
-  transition: width 0.25s ease;
+  min-width: 300px;
 }
 
-.middle-column.expanded {
-  width: 380px;
-  min-width: 380px;
-}
-
-.right-column {
-  flex: 1;
-  height: 100%;
-  background: #ffffff;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-/* ============================================================
-样式
-============================================================ */
-
-/* 搜索栏 */
+/* 第一行：搜索框 + 菜单图标横向布局 */
 .search-bar-wrap {
   display: flex;
   align-items: center;
@@ -1331,48 +1086,42 @@ defineExpose({
   padding: 12px 12px 6px;
   flex-shrink: 0;
 }
-
 .column-search {
   flex: 1;
 }
-
 .search-input :deep(.el-input__wrapper) {
   border-radius: 20px;
   background: #f5f5f7;
   border: none;
   box-shadow: none;
 }
-
 .search-input :deep(.el-input__wrapper:hover) {
   background: #eee;
 }
-
 .search-input :deep(.el-input__wrapper.is-focus) {
   background: #fff;
   box-shadow: 0 0 0 1px #409eff;
 }
-
 .search-input :deep(.el-input__inner) {
   font-size: 13px;
   color: #1d1d1f;
 }
-
 .search-input :deep(.el-input__inner::placeholder) {
   color: #999;
 }
 
+/* 右侧三横线菜单按钮 */
 .menu-icon-btn {
   padding: 4px;
   color: #666;
 }
-
 .menu-icon-btn:hover {
   background: #f0f0f0;
   border-radius: 4px;
   color: #111;
 }
 
-/* 头部栏 */
+/* 第二行：文件夹头部栏（返回+文件夹名称） */
 .column-header {
   display: flex;
   justify-content: space-between;
@@ -1380,30 +1129,16 @@ defineExpose({
   padding: 6px 12px;
   flex-shrink: 0;
 }
-
 .header-left {
   display: flex;
   align-items: center;
   gap: 6px;
-  min-width: 40px;
-  flex-shrink: 0;
-}
-
-.header-center {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   min-width: 0;
-  padding: 0 8px;
 }
-
-.header-right {
-  min-width: 40px;
+.header-icon {
+  font-size: 16px;
   flex-shrink: 0;
-  text-align: right;
 }
-
 .header-title {
   font-size: 14px;
   font-weight: 600;
@@ -1411,42 +1146,36 @@ defineExpose({
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-align: center;
 }
-
 .header-count {
   font-size: 12px;
   color: #8e8e93;
   background: #f0f0f0;
   padding: 0 6px;
   border-radius: 10px;
+  flex-shrink: 0;
   font-weight: 500;
-  display: inline-block;
 }
-
 .back-btn {
   padding: 4px 6px !important;
   font-size: 14px;
   color: #6e6e73;
 }
-
 .back-btn:hover {
   color: #1d1d1f;
   background: #f0f0f0;
   border-radius: 4px;
 }
 
-/* 下拉菜单 */
+/* 下拉菜单：一级菜单垂直竖排两项，匹配截图 */
 :deep(.parent-main-menu) {
   min-width: 160px;
 }
-
 :deep(.view-sub-menu),
 :deep(.sort-sub-menu) {
   margin-left: 8px;
   min-width: 100px;
 }
-
 :deep(.el-dropdown-menu__item) {
   font-size: 16px;
   padding: 10px 16px;
@@ -1455,29 +1184,25 @@ defineExpose({
   justify-content: space-between;
   gap: 12px;
 }
-
 :deep(.el-dropdown-menu__item.active) {
   background: #ecf5ff;
   color: #409eff;
 }
-
 .item-right-arrow {
   font-size: 12px;
   color: #999;
 }
-
 .sort-arrow {
   font-size: 10px;
   color: #409eff;
 }
 
-/* 列表 */
+/* 列表容器 */
 .column-list {
   flex: 1;
   overflow-y: auto;
   padding: 0 8px 8px;
 }
-
 .list-item {
   display: flex;
   align-items: center;
@@ -1488,31 +1213,25 @@ defineExpose({
   transition: background 0.15s;
   min-height: 36px;
 }
-
 .list-item:hover {
   background: #f5f5f7;
 }
-
 .list-item.active {
   background: #e8e8e8;
 }
-
 .list-item.selected {
   background: #ecf5ff;
 }
-
 .item-icon {
   font-size: 15px;
   width: 22px;
   text-align: center;
   flex-shrink: 0;
 }
-
 .item-info {
   flex: 1;
   min-width: 0;
 }
-
 .item-title {
   font-size: 13px;
   font-weight: 500;
@@ -1521,7 +1240,6 @@ defineExpose({
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 .item-meta {
   display: flex;
   align-items: center;
@@ -1531,22 +1249,18 @@ defineExpose({
   margin-top: 1px;
   flex-wrap: wrap;
 }
-
 .meta-tags {
   display: flex;
   align-items: center;
   gap: 2px;
 }
-
 .tag-more {
   font-size: 10px;
 }
-
 .preview-mode .item-title {
   font-size: 14px;
   margin-bottom: 2px;
 }
-
 .preview-mode .item-preview {
   font-size: 13px;
   color: #666;
@@ -1554,34 +1268,29 @@ defineExpose({
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 .more-btn {
   opacity: 0;
   transition: opacity 0.2s;
   flex-shrink: 0;
   padding: 2px 4px;
 }
-
 .list-item:hover .more-btn {
   opacity: 1;
 }
 
-/* 空状态 */
+/* 空状态 1:1 截图 */
 .empty-state {
   padding: 60px 20px;
   text-align: center;
 }
-
 .empty-svg {
   margin-bottom: 16px;
 }
-
 .empty-tip {
   font-size: 14px;
   color: #888;
   margin: 0 0 20px;
 }
-
 .empty-create-btn {
   border-radius: 4px;
   padding: 8px 22px;
@@ -1601,25 +1310,10 @@ defineExpose({
 .column-list::-webkit-scrollbar {
   width: 4px;
 }
-
 .column-list::-webkit-scrollbar-track {
   background: transparent;
 }
-
 .column-list::-webkit-scrollbar-thumb {
-  background: #d0d0d0;
-  border-radius: 2px;
-}
-
-.right-column::-webkit-scrollbar {
-  width: 4px;
-}
-
-.right-column::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.right-column::-webkit-scrollbar-thumb {
   background: #d0d0d0;
   border-radius: 2px;
 }

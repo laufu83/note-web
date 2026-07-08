@@ -1,7 +1,6 @@
 // src/router/index.ts
 
 import { createRouter, createWebHistory } from 'vue-router'
-import { useUserStore } from '@/store/modules/user'
 import { setupGuards } from './guards'
 
 const routes = [
@@ -28,85 +27,57 @@ const routes = [
   },
 
   // ============================================================
-  // 主布局路由（需要认证）
+  // 主布局路由（三栏布局）
   // ============================================================
   {
     path: '/',
     component: () => import('@/components/layout/AppLayout.vue'),
     meta: { requiresAuth: true },
     children: [
-      // 首页
+      // ✅ 默认进入最近文件
       {
         path: '',
-        name: 'Dashboard',
-        component: () => import('@/views/main/Dashboard.vue'),
+        redirect: '/file/recent',
       },
-      // 文件夹视图
+
+      // ✅ 统一文件路由：/file/:folderId
+      // folderId 可以是: recent, starred, trash, 或具体文件夹ID
       {
-        path: 'folder/:id?',
-        name: 'FolderView',
-        component: () => import('@/views/main/FolderView.vue'),
-      },
-      // 笔记详情
-      {
-        path: 'note/:id',
-        name: 'NoteDetail',
-        component: () => import('@/views/main/NoteDetail.vue'),
-      },
-      // 星标笔记
-      {
-        path: 'starred',
-        name: 'StarredView',
-        component: () => import('@/views/main/Dashboard.vue'),
-        props: { filter: 'starred' },
-      },
-      // 归档笔记
-      {
-        path: 'archived',
-        name: 'ArchivedView',
-        component: () => import('@/views/main/Dashboard.vue'),
-        props: { filter: 'archived' },
-      },
-      // 回收站
-      {
-        path: 'trash',
-        name: 'TrashView',
-        component: () => import('@/views/main/TrashView.vue'),
-      },
-      // 笔记模板
-      {
-        path: 'templates',
-        name: 'Templates',
-        component: () => import('@/views/main/Templates.vue'),
-        meta: { requiresAuth: true },
-      },
-      // 个人设置
-      {
-        path: 'settings',
-        name: 'Settings',
-        component: () => import('@/views/settings/Profile.vue'),
-      },
-      // 管理后台（需管理员权限）
-      {
-        path: 'admin',
-        name: 'Admin',
-        component: () => import('@/views/admin/Dashboard.vue'),
-        meta: { roles: ['admin'] },
+        path: 'file/:folderId',
+        name: 'FileView',
+        component: () => import('@/components/layout/FolderView.vue'),
+        props: true,
         children: [
+            // ✅ 空状态页面
           {
-            path: 'users',
-            name: 'AdminUsers',
-            component: () => import('@/views/admin/Users.vue'),
+            path: 'empty',
+            name: 'FolderEmpty',
+            component: () => import('@/views/main/EmptyPreview.vue'),
+            props: (route: any) => ({
+              folderId: route.params.folderId,
+            }),
           },
+          // 新建笔记：/file/:folderId/note
           {
-            path: 'logs',
-            name: 'AdminLogs',
-            component: () => import('@/views/admin/Logs.vue'),
+            path: 'note',
+            name: 'FileNoteNew',
+            component: () => import('@/views/main/NoteDetail.vue'),
+            props: (route: any) => ({
+              noteId: null,
+              folderId: route.params.folderId,
+              isNew: true,
+            }),
           },
+          // 编辑笔记：/file/:folderId/note/:noteId
           {
-            path: 'config',
-            name: 'AdminConfig',
-            component: () => import('@/views/admin/SystemConfig.vue'),
+            path: 'note/:noteId',
+            name: 'FileNoteDetail',
+            component: () => import('@/views/main/NoteDetail.vue'),
+            props: (route: any) => ({
+              noteId: route.params.noteId,
+              folderId: route.params.folderId,
+              isNew: false,
+            }),
           },
         ],
       },
@@ -114,7 +85,66 @@ const routes = [
   },
 
   // ============================================================
-  // 404 重定向（必须放在最后）
+  // 设置布局（两栏：左侧栏 + 内容区）
+  // ============================================================
+  {
+    path: '/settings',
+    component: () => import('@/components/layout/SettingsLayout.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        name: 'Settings',
+        component: () => import('@/views/settings/Profile.vue'),
+      },
+    ],
+  },
+  {
+    path: '/templates',
+    component: () => import('@/components/layout/SettingsLayout.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        name: 'Templates',
+        component: () => import('@/views/main/Templates.vue'),
+      },
+    ],
+  },
+
+  // ============================================================
+  // 管理后台布局（两栏：左侧栏 + 内容区）
+  // ============================================================
+  {
+    path: '/admin',
+    component: () => import('@/components/layout/AdminLayout.vue'),
+    meta: { requiresAuth: true, roles: ['admin'] },
+    children: [
+      {
+        path: '',
+        name: 'AdminDashboard',
+        component: () => import('@/views/admin/Dashboard.vue'),
+      },
+      {
+        path: 'users',
+        name: 'AdminUsers',
+        component: () => import('@/views/admin/Users.vue'),
+      },
+      {
+        path: 'logs',
+        name: 'AdminLogs',
+        component: () => import('@/views/admin/Logs.vue'),
+      },
+      {
+        path: 'config',
+        name: 'AdminConfig',
+        component: () => import('@/views/admin/SystemConfig.vue'),
+      },
+    ],
+  },
+
+  // ============================================================
+  // 404 重定向
   // ============================================================
   {
     path: '/:pathMatch(.*)*',

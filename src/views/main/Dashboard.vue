@@ -1,138 +1,161 @@
 <template>
   <div class="dashboard">
-    <!-- 快捷操作 -->
-    <div class="quick-actions">
-      <el-button type="primary" @click="createNewNote">
-        <el-icon><Plus /></el-icon>
-        新建笔记
-      </el-button>
-      <el-button @click="openCreateFolder">
-        <el-icon><FolderAdd /></el-icon>
-        新建文件夹
-      </el-button>
+    <!-- 页面标题 -->
+    <div class="page-header">
+      <h1 class="page-title">{{ pageTitle }}</h1>
+      <div class="page-actions">
+        <el-button size="small" @click="openCreateFolder">
+          <el-icon><FolderAdd /></el-icon>
+          新建文件夹
+        </el-button>
+        <el-button type="primary" size="small" @click="createNewNote">
+          <el-icon><Plus /></el-icon>
+          新建笔记
+        </el-button>
+      </div>
     </div>
 
-    <!-- 笔记列表 -->
-    <div class="note-list-wrapper">
-      <div class="list-header">
-        <span class="list-title">最近笔记</span>
-        <el-input
-          v-model="searchKeyword"
-          placeholder="搜索笔记..."
-          prefix-icon="Search"
-          clearable
-          style="width: 240px"
-          @input="handleSearch"
-        />
-      </div>
-
-      <el-table
-        v-loading="loading"
-        :data="notes"
-        style="width: 100%"
-        @row-click="handleNoteClick"
+    <!-- 资源列表 -->
+    <div class="resource-list">
+      <!-- 列表项 -->
+      <div
+        v-for="item in displayItems"
+        :key="item.id"
+        class="resource-item"
+        @click="handleItemClick(item)"
       >
-        <el-table-column prop="title" label="标题" min-width="200">
-          <template #default="{ row }">
-            <div class="note-title">
-              <span v-if="row.isStarred" class="star">⭐</span>
-              {{ row.title }}
-            </div>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="updatedAt" label="更新时间" width="180">
-          <template #default="{ row }">
-            {{ formatDate(row.updatedAt) }}
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="wordCount" label="字数" width="80" align="center" />
-
-        <el-table-column label="标签" width="150">
-          <template #default="{ row }">
-            <el-tag
-              v-for="tag in row.tags?.slice(0, 2)"
-              :key="tag.id"
-              size="small"
-              :color="tag.color"
-              style="margin: 2px"
-            >
-              {{ tag.name }}
-            </el-tag>
-            <el-tag v-if="row.tags?.length > 2" size="small">+{{ row.tags.length - 2 }}</el-tag>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="操作" width="120" align="center">
-          <template #default="{ row }">
-            <el-button
-              size="small"
-              :type="row.isStarred ? 'warning' : 'default'"
-              @click.stop="toggleStar(row)"
-            >
-              {{ row.isStarred ? '取消星标' : '星标' }}
+        <div class="item-icon">
+          <span v-if="item._type === 'folder'">📁</span>
+          <span v-else-if="item.isStarred">⭐</span>
+          <span v-else>📄</span>
+        </div>
+        <div class="item-content">
+          <div class="item-title">{{ item.title || item.name }}</div>
+          <div class="item-meta">
+            <span v-if="item._type === 'folder'" class="meta-tag">文件夹</span>
+            <span v-else-if="item.tags" class="meta-tags">
+              <span v-for="tag in item.tags.slice(0, 2)" :key="tag.id" class="tag">
+                #{{ tag.name }}
+              </span>
+            </span>
+            <span class="meta-date">{{ formatDate(item.updatedAt || item.createdAt) }}</span>
+            <span v-if="item.wordCount" class="meta-size">{{ item.wordCount }} 字</span>
+          </div>
+        </div>
+        <div class="item-actions">
+          <el-dropdown trigger="click" @command="(cmd) => handleItemCommand(cmd, item)">
+            <el-button size="small" text>
+              <el-icon><MoreFilled /></el-icon>
             </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <div class="pagination-wrapper">
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :total="total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next"
-          @size-change="loadNotes"
-          @current-change="loadNotes"
-        />
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="rename">重命名</el-dropdown-item>
+                <el-dropdown-item command="move">移动</el-dropdown-item>
+                <el-dropdown-item v-if="item._type === 'note'" command="star">
+                  {{ item.isStarred ? '取消星标' : '星标' }}
+                </el-dropdown-item>
+                <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
       </div>
+
+      <!-- 空状态 -->
+      <div v-if="displayItems.length === 0 && !loading" class="empty-state">
+        <el-empty description="暂无内容">
+          <el-button type="primary" @click="createNewNote">新建笔记</el-button>
+        </el-empty>
+      </div>
+
+      <!-- 加载状态 -->
+      <div v-if="loading" class="loading-state">
+        <el-skeleton :rows="5" animated />
+      </div>
+    </div>
+
+    <!-- 分页 -->
+    <div v-if="total > pageSize" class="pagination-wrapper">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :total="total"
+        layout="prev, pager, next"
+        @current-change="loadNotes"
+      />
     </div>
 
     <!-- 新建文件夹对话框 -->
-    <CreateFolderDialog
-      v-model="showCreateFolder"
-      @success="onFolderCreated"
-    />
+    <CreateFolderDialog v-model="showCreateFolder" @success="onFolderCreated" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Plus, FolderAdd } from '@element-plus/icons-vue'
+import { Plus, FolderAdd, MoreFilled } from '@element-plus/icons-vue'
 import { useNoteStore } from '@/store/modules/note'
 import { useFolderStore } from '@/store/modules/folder'
-import { noteApi } from '@/api/note'
+import { noteApi, folderApi } from '@/api'
 import { formatDate } from '@/utils/date'
-// ✅ 导入新建文件夹对话框组件
 import CreateFolderDialog from '@/components/business/CreateFolderDialog.vue'
 
 const router = useRouter()
 const noteStore = useNoteStore()
 const folderStore = useFolderStore()
 
+const props = defineProps<{
+  filter?: 'starred' | 'archived' | 'trash'
+}>()
+
+const loading = ref(false)
 const notes = ref<any[]>([])
 const total = ref(0)
-const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(20)
-const searchKeyword = ref('')
-let searchTimer: any = null
-
-// ✅ 控制新建文件夹弹窗
 const showCreateFolder = ref(false)
+
+const pageTitle = computed(() => {
+  const titles: Record<string, string> = {
+    starred: '⭐ 加星笔记',
+    archived: '📦 归档笔记',
+    trash: '🗑️ 回收站',
+  }
+  return titles[props.filter || ''] || '📄 全部笔记'
+})
+
+const displayItems = computed(() => {
+  // 在文件夹视图显示文件夹 + 笔记
+  if (router.currentRoute.value.path.startsWith('/folder')) {
+    const folderItems = folderStore.tree.map(f => ({ ...f, _type: 'folder' }))
+    return [...folderItems, ...notes.value]
+  }
+  return notes.value
+})
 
 async function loadNotes() {
   loading.value = true
   try {
-    const result = await noteApi.list({
+    const params: any = {
       page: currentPage.value,
       pageSize: pageSize.value,
-      keyword: searchKeyword.value || undefined,
-    })
+    }
+
+    if (props.filter === 'starred') params.isStarred = 1
+    if (props.filter === 'archived') params.isArchived = 1
+    if (props.filter === 'trash') {
+      // 回收站特殊处理
+      const result = await noteApi.getDeleted({
+        page: currentPage.value,
+        pageSize: pageSize.value,
+      })
+      notes.value = result.items
+      total.value = result.pagination.total
+      return
+    }
+
+    const result = await noteApi.list(params)
     notes.value = result.items
     total.value = result.pagination.total
   } finally {
@@ -140,104 +163,170 @@ async function loadNotes() {
   }
 }
 
-function handleSearch() {
-  clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => {
-    currentPage.value = 1
-    loadNotes()
-  }, 500)
-}
-
-function handleNoteClick(row: any) {
-  router.push(`/note/${row.id}`)
-}
-
-async function toggleStar(row: any) {
-  try {
-    const result = await noteApi.toggleStar(row.id, row.isStarred ? 0 : 1)
-    row.isStarred = result.isStarred
-    ElMessage.success(result.isStarred ? '已添加星标' : '已取消星标')
-  } catch {
-    // 错误已在拦截器中处理
-  }
-}
-
 function createNewNote() {
   router.push('/note/new')
 }
 
-// ✅ 打开新建文件夹对话框
 function openCreateFolder() {
   showCreateFolder.value = true
 }
 
-// ✅ 文件夹创建成功回调
 async function onFolderCreated() {
   await folderStore.loadTree()
   ElMessage.success('文件夹创建成功')
 }
 
+function handleItemClick(item: any) {
+  if (item._type === 'folder') {
+    router.push(`/folder/${item.id}`)
+  } else {
+    router.push(`/note/${item.id}`)
+  }
+}
+
+function handleItemCommand(command: string, item: any) {
+  switch (command) {
+    case 'delete':
+      ElMessage.info('删除功能')
+      break
+    case 'star':
+      ElMessage.info('星标功能')
+      break
+    default:
+      ElMessage.info(`${command} 功能`)
+  }
+}
+
 onMounted(() => {
   loadNotes()
-  folderStore.loadTree()
-})
-
-watch(searchKeyword, () => {
-  handleSearch()
 })
 </script>
 
 <style scoped>
 .dashboard {
-  padding: 20px;
+  padding: 24px 32px;
+  flex: 1;
+  overflow-y: auto;
+  background: #ffffff;
 }
 
-.quick-actions {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.note-list-wrapper {
-  background: white;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.list-header {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
 }
 
-.list-title {
-  font-size: 16px;
+.page-title {
+  font-size: 24px;
   font-weight: 600;
+  color: #1d1d1f;
+  margin: 0;
 }
 
-.note-title {
+.page-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.resource-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.resource-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  gap: 12px;
+  border: 1px solid transparent;
 }
 
-.star {
+.resource-item:hover {
+  background: #f5f5f7;
+  border-color: #e8e8e8;
+}
+
+.item-icon {
+  font-size: 18px;
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-title {
   font-size: 14px;
+  font-weight: 500;
+  color: #1d1d1f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #8e8e93;
+  margin-top: 2px;
+}
+
+.meta-tag {
+  background: #f0f0f0;
+  padding: 0 8px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.meta-tags {
+  display: flex;
+  gap: 4px;
+}
+
+.tag {
+  color: #6e6e73;
+}
+
+.meta-date {
+  color: #8e8e93;
+}
+
+.meta-size {
+  color: #8e8e93;
+}
+
+.item-actions {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.resource-item:hover .item-actions {
+  opacity: 1;
+}
+
+.empty-state {
+  padding: 60px 0;
+  text-align: center;
+}
+
+.loading-state {
+  padding: 20px 0;
 }
 
 .pagination-wrapper {
-  margin-top: 16px;
+  margin-top: 20px;
   display: flex;
-  justify-content: flex-end;
-}
-
-:deep(.el-table__row) {
-  cursor: pointer;
-}
-
-:deep(.el-table__row:hover) {
-  background-color: #f5f7fa;
+  justify-content: center;
 }
 </style>

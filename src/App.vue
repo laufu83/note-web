@@ -1,3 +1,4 @@
+<!-- src/App.vue -->
 <template>
   <router-view />
 </template>
@@ -9,18 +10,27 @@ import { useUserStore } from '@/store/modules/user'
 const userStore = useUserStore()
 
 onMounted(() => {
-  // 检查本地存储是否有 token，恢复登录状态
+  // 恢复登录状态
   userStore.restoreSession()
 })
 </script>
 
 <style>
-html,
-body,
-#app {
-  height: 100%;
+* {
   margin: 0;
   padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: #ffffff;
+  color: #1d1d1f;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
 }
 </style>
