@@ -14,8 +14,6 @@
         <el-icon><Search /></el-icon>
       </el-button>
 
-      <CreateMenu @create-folder="handleCreateFolder" />
-
       <el-dropdown @command="handleCommand">
         <el-avatar :size="28" :src="userStore.userInfo?.avatarUrl || undefined">
           {{ userStore.nickname?.charAt(0)?.toUpperCase() || 'U' }}

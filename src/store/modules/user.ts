@@ -70,7 +70,30 @@ export const useUserStore = defineStore('user', () => {
     accessToken.value = token
     localStorage.setItem(TOKEN_KEY, token)
   }
-
+  /**
+   * 🔥 登出（调用后端接口 + 清除本地数据）
+   */
+  async function logout() {
+    // 1. 调用后端登出接口（即使失败也继续清理）
+    try {
+      await authApi.logout()
+    } catch (error) {
+      // 后端接口失败不阻塞登出流程
+      console.warn('登出接口调用失败:', error)
+    }
+    
+    // 2. 清除本地存储
+    clearUser()
+  }
+   /**
+   * 更新用户信息
+   */
+  function updateUserInfo(info: Partial<UserInfo>) {
+    if (userInfo.value) {
+      userInfo.value = { ...userInfo.value, ...info }
+      localStorage.setItem(USER_KEY, JSON.stringify(userInfo.value))
+    }
+  }
   return {
     userInfo,
     accessToken,
@@ -78,6 +101,8 @@ export const useUserStore = defineStore('user', () => {
     isLoggedIn,
     setUser,
     clearUser,
+    logout,
+    updateUserInfo,
     restoreSession,
     initToken,
     updateAccessToken,

@@ -1,4 +1,4 @@
-<!-- src/components/FolderHeader.vue -->
+<!-- src/components/folder/FolderHeader.vue -->
 <template>
   <div class="column-header">
     <div class="header-left">
@@ -18,7 +18,7 @@
     </div>
     
     <div class="header-right">
-      <span class="header-count">{{ count }}</span>
+      <!-- <span class="header-count">{{ count }}</span> -->
     </div>
   </div>
 </template>

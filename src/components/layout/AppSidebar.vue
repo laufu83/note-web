@@ -1,155 +1,175 @@
 <!-- src/components/layout/AppSidebar.vue -->
-
 <template>
-  <div class="sidebar">
-    <!-- 标题 -->
-    <div class="sidebar-header">
-      <span class="logo">📝 我的笔记</span>
+  <div class="sidebar-wrapper">
+    <!-- 折叠切换按钮（悬浮在边缘） -->
+    <div class="toggle-actions" @click="appStore.toggleSidebar">
+      <el-button text class="toggle-btn">
+        <el-icon><Expand /></el-icon>
+      </el-button>
     </div>
 
-    <!-- 快捷操作 -->
-    <div class="sidebar-actions">
-      <el-dropdown trigger="click" placement="bottom-start" @command="handleCommand">
-        <el-button size="small" text class="create-btn">
-          <el-icon><Plus /></el-icon>
-          新建
-          <el-icon class="arrow"><ArrowDown /></el-icon>
-        </el-button>
-        <template #dropdown>
-          <el-dropdown-menu class="create-menu">
-            <div class="menu-title">新建</div>
-            <el-dropdown-item command="note">
-              <span class="menu-icon">📄</span> 新建笔记
-            </el-dropdown-item>
-            <el-dropdown-item command="folder">
-              <span class="menu-icon">📁</span> 新建文件夹
-            </el-dropdown-item>
-            <el-dropdown-item divided command="template">
-              <span class="menu-icon">📋</span> 从模板新建
-            </el-dropdown-item>
-            <el-dropdown-item command="upload">
-              <span class="menu-icon">📎</span> 上传文件
-            </el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
-    </div>
-
-    <!-- 导航菜单 -->
-    <div class="sidebar-nav">
-      <!-- 最新 -->
-      <div
-        class="nav-item"
-        :class="{ active: isActive('/file/recent') }"
-        @click="goTo('/file/recent')"
-      >
-        <span class="nav-icon">🕐</span>
-        <span class="nav-label">最新</span>
-      </div>
-
-      <!-- 星标 -->
-      <div
-        class="nav-item"
-        :class="{ active: isActive('/file/starred') }"
-        @click="goTo('/file/starred')"
-      >
-        <span class="nav-icon">⭐</span>
-        <span class="nav-label">星标</span>
-      </div>
-
-      <!-- 回收站 -->
-      <div
-        class="nav-item"
-        :class="{ active: isActive('/file/trash') }"
-        @click="goTo('/file/trash')"
-      >
-        <span class="nav-icon">🗑️</span>
-        <span class="nav-label">回收站</span>
-      </div>
-
-      <div class="nav-divider"></div>
-
-      <!-- 我的文件夹 -->
-      <div class="nav-section">
-        <div class="section-header" @click="foldersExpanded = !foldersExpanded">
-          <span class="section-icon">📁</span>
-          <span class="section-label">我的文件夹</span>
-          <span class="section-count">{{ folderList.length }}</span>
-          <el-icon class="section-arrow" :class="{ expanded: foldersExpanded }">
-            <ArrowDown />
-          </el-icon>
-        </div>
-        <div v-show="foldersExpanded" class="section-children">
-          <FolderTreeItem
-            v-for="folder in folderList"
-            :key="folder.id"
-            :folder="folder"
-            :level="1"
-            :current-folder-id="currentFolderId"
-            :child-create-target-id="childCreateTargetId"
-            :child-create-name="childCreateName"
-            @update:child-create-name="childCreateName = $event"
-            @select="goToFolder"
-            @folder-menu="handleFolderMenuCommand"
-            @child-submit="submitChildCreateFolder"
-            @child-cancel="cancelChildCreateFolder"
-          />
-
-          <div v-if="folderList.length === 0" class="nav-empty">暂无文件夹</div>
-        </div>
-      </div>
-
-      <div class="nav-divider"></div>
-
-      <!-- 标签 -->
-      <div class="nav-section">
-        <div class="section-header" @click="tagsExpanded = !tagsExpanded">
-          <span class="section-icon">🏷️</span>
-          <span class="section-label">标签</span>
-          <span class="section-count">{{ tagList.length }}</span>
-          <el-icon class="section-arrow" :class="{ expanded: tagsExpanded }">
-            <ArrowDown />
-          </el-icon>
-        </div>
-        <div v-show="tagsExpanded" class="section-children">
-          <div
-            v-for="tag in tagList"
-            :key="tag.id"
-            class="nav-item nav-tag"
-            @click="goToTag(tag.id)"
+    <div class="sidebar" :class="{ 'sidebar-collapsed': collapsed }">
+      <!-- ========== 顶部用户区域 ========== -->
+      <div class="sidebar-user-header">
+        <div class="avatar-wrapper">
+          <el-avatar 
+            size="72" 
+            :src="userStore.userInfo?.avatarUrl || undefined"
+            class="user-avatar"
           >
-            <span class="nav-icon" :style="{ color: tag.color || '#6e6e73' }">#</span>
-            <span class="nav-label">{{ tag.name }}</span>
-            <span class="nav-badge">{{ tag.noteCount || 0 }}</span>
-          </div>
-          <div v-if="tagList.length === 0" class="nav-empty">暂无标签</div>
+            {{ userStore.userInfo?.nickname?.charAt(0)?.toUpperCase() || 'U' }}
+          </el-avatar>
+          <div class="avatar-status"></div>
+        </div>
+        <div class="user-info">
+          <div class="user-name">{{ userStore.userInfo?.nickname || userStore.userInfo?.username || '用户' }}</div>
+          <div class="user-email">{{ userStore.userInfo?.email || '' }}</div>
         </div>
       </div>
 
-      <div class="nav-divider"></div>
-
-      <div class="nav-item" @click="goTo('/settings')">
-        <span class="nav-icon">⚙️</span>
-        <span class="nav-label">设置</span>
-      </div>
+      <!-- ========== 新建按钮 ========== -->
+     <div class="sidebar-actions">
+      <CreateDropdown @command="handleCommand">
+        <template #default>
+          <el-button class="create-btn" type="primary" size="large" block>
+            <span class="btn-content">
+              <el-icon class="btn-icon"><Plus /></el-icon>
+              <span class="btn-text">新建笔记</span>
+              <el-icon class="btn-arrow"><ArrowDown /></el-icon>
+            </span>
+          </el-button>
+        </template>
+      </CreateDropdown>
     </div>
 
-    <!-- 底部用户 -->
-    <div class="sidebar-footer">
-      <div class="user-info">
-        <el-avatar :size="24" :src="userStore.userInfo?.avatarUrl || undefined">
-          {{ userStore.userInfo?.nickname?.charAt(0)?.toUpperCase() || 'U' }}
-        </el-avatar>
-        <span class="user-name">{{ userStore.userInfo?.nickname || userStore.userInfo?.username }}</span>
-      </div>
-    </div>
+      <!-- ========== 导航菜单 ========== -->
+      <div class="sidebar-nav">
+        <!-- 最新 -->
+        <div
+          class="nav-item"
+          :class="{ active: isActive('/file/recent') }"
+          @click="goTo('/file/recent')"
+        >
+          <div class="nav-icon-wrapper">
+            <el-icon class="nav-icon"><Grid /></el-icon>
+          </div>
+          <span class="nav-label">最新</span>
+          
+        </div>
 
-    <!-- 创建文件夹弹窗 -->
-    <CreateFolderDialog
-      v-model="showCreateFolderDialog"
-      :parent-id="createFolderParentId"
-      @success="onFolderCreated"
-    />
+        <!-- 我的文件夹 -->
+        <div class="nav-section">
+          <div 
+            class="section-header" 
+            @click="goTo('/file/root')"
+            :class="{ active: isActive('/file/root') }"
+          >
+            <div class="nav-icon-wrapper">
+              <el-icon class="section-icon"><Folder /></el-icon>
+            </div>
+            <span class="section-label">我的文件夹</span>
+           
+          </div>
+          <div v-show="foldersExpanded" class="section-children">
+            <FolderTreeItem
+              v-for="folder in folderList"
+              :key="folder.id"
+              :folder="folder"
+              :level="1"
+              :current-folder-id="currentFolderId"
+              :child-create-target-id="childCreateTargetId"
+              :child-create-name="childCreateName"
+              @update:child-create-name="childCreateName = $event"
+              @select="goToFolder"
+              @folder-menu="handleFolderMenuCommand"
+              @child-submit="submitChildCreateFolder"
+              @child-cancel="cancelChildCreateFolder"
+            />
+            <div v-if="folderList.length === 0" class="nav-empty">
+              <el-icon><FolderRemove /></el-icon>
+              <span>暂无文件夹</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 与我分享 -->
+        <div
+          class="nav-item"
+          :class="{ active: isActive('/file/shared') }"
+          @click="goTo('/file/shared')"
+        >
+          <div class="nav-icon-wrapper">
+            <el-icon class="nav-icon"><User /></el-icon>
+          </div>
+          <span class="nav-label">与我分享</span>
+        </div>
+
+        <!-- 加星 -->
+        <div
+          class="nav-item"
+          :class="{ active: isActive('/file/starred') }"
+          @click="goTo('/file/starred')"
+        >
+          <div class="nav-icon-wrapper">
+            <el-icon class="nav-icon"><Star /></el-icon>
+          </div>
+          <span class="nav-label">加星</span>
+        
+        </div>
+
+        <!-- 回收站 -->
+        <div
+          class="nav-item"
+          :class="{ active: isActive('/file/trash') }"
+          @click="goTo('/file/trash')"
+        >
+          <div class="nav-icon-wrapper">
+            <el-icon class="nav-icon"><Delete /></el-icon>
+          </div>
+          <span class="nav-label">回收站</span>
+        </div>
+
+        <!-- 分隔线 -->
+        <div class="nav-divider"></div>
+
+        <!-- 模板中心 -->
+        <div
+          class="nav-item"
+          @click="goTo('/templates')"
+        >
+          <div class="nav-icon-wrapper">
+            <el-icon class="nav-icon"><Collection /></el-icon>
+          </div>
+          <span class="nav-label">模板中心</span>
+        </div>
+      </div>
+
+      <!-- ========== 底部区域 ========== -->
+      <div class="sidebar-footer">
+        <div class="footer-divider"></div>
+        <div class="footer-actions">
+          <div class="footer-link-row">
+            <span class="footer-link" @click="goTo('/settings')">
+              <el-icon><Setting /></el-icon>
+              设置
+            </span>
+            
+            <span class="footer-link" @click="handleLogout">
+              <el-icon><SwitchButton /></el-icon>
+              退出
+            </span>
+          </div>
+        </div>
+        <div class="footer-version">v2.0.1</div>
+      </div>
+
+      <!-- 创建文件夹弹窗 -->
+      <CreateFolderDialog
+        v-model="showCreateFolderDialog"
+        :parent-id="createFolderParentId"
+        @success="onFolderCreated"
+      />
+    </div>
   </div>
 </template>
 
@@ -157,64 +177,68 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, ArrowDown } from '@element-plus/icons-vue'
+import {
+  ArrowDown,
+  Grid,
+  Folder,
+  User,
+  Star,
+  Delete,
+  Plus,
+  Expand,
+  Collection,
+  Setting,
+  QuestionFilled,
+  SwitchButton,
+  FolderRemove
+} from '@element-plus/icons-vue'
 import { useFolderStore } from '@/store/modules/folder'
-import { useTagStore } from '@/store/modules/tag'
 import { useUserStore } from '@/store/modules/user'
+import { useAppStore } from '@/store/modules/app'
 import CreateFolderDialog from '@/components/business/CreateFolderDialog.vue'
 import FolderTreeItem from './FolderTreeItem.vue'
+import CreateDropdown from '@/components/business/CreateNew.vue'
 
 // ============================================================
-// 特殊目录列表
+// 常量 & Store
 // ============================================================
-const SPECIAL_FOLDERS = ['recent', 'starred', 'trash'] as const
-
+const SPECIAL_FOLDERS = ['recent', 'starred', 'trash', 'shared', 'cloud-collab'] as const
 const isSpecialFolder = (id: string | null): boolean => {
   return id !== null && SPECIAL_FOLDERS.includes(id as any)
 }
 
-// ============================================================
-// Store & Router
-// ============================================================
 const router = useRouter()
 const route = useRoute()
 const folderStore = useFolderStore()
-const tagStore = useTagStore()
 const userStore = useUserStore()
+const appStore = useAppStore()
 
 // ============================================================
 // 状态
 // ============================================================
-const foldersExpanded = ref(true)
-const tagsExpanded = ref(true)
-
-const showCreateFolderDialog = ref(false)
-const createFolderParentId = ref<string | null>(null)
-
-const currentFolderId = computed(() => {
-  return route.params.folderId as string || null
+const collapsed = computed({
+  get: () => appStore.sidebarCollapsed,
+  set: (val) => appStore.setSidebarCollapsed(val),
 })
 
-// 子文件夹新建
+const foldersExpanded = ref(true)
+const showCreateFolderDialog = ref(false)
+const createFolderParentId = ref<string | null>(null)
+const currentFolderId = computed(() => route.params.folderId as string || null)
+
 const childCreateTargetId = ref<string | null>(null)
 const childCreateName = ref('')
-
-// ============================================================
-// 计算属性
-// ============================================================
 const folderList = computed(() => folderStore.tree || [])
-const tagList = computed(() => tagStore.tags || [])
 
 // ============================================================
-// Emit
+// Emits
 // ============================================================
 const emit = defineEmits<{
   (e: 'create-folder', parentId: string | null): void
-  (e: 'create-note', folderId: string | null): void
+  (e: 'create-note', folderId: string | null, type: string): void
   (e: 'folder-delete', folderId: string): void
   (e: 'folder-rename', folder: any): void
   (e: 'folder-move', folder: any): void
- //(e: 'folder-copy', folder: any): void
   (e: 'folder-more', folder: any): void
   (e: 'refresh'): void
 }>()
@@ -222,11 +246,8 @@ const emit = defineEmits<{
 // ============================================================
 // 导航方法
 // ============================================================
-
 function isActive(path: string): boolean {
-  if (path === '/file/recent') {
-    return route.path === '/file/recent' || route.path === '/'
-  }
+  if (path === '/file/recent') return route.path === '/file/recent' || route.path === '/'
   return route.path === path || route.path.startsWith(path + '/')
 }
 
@@ -238,24 +259,13 @@ function goToFolder(id: string) {
   router.push(`/file/${id}`)
 }
 
-function goToTag(id: string) {
-  router.push(`/tag/${id}`)
-}
-
 // ============================================================
-// 获取有效的父文件夹ID
+// 文件夹操作
 // ============================================================
-
 function getValidParentId(parentId: string | null): string | null {
-  if (isSpecialFolder(parentId)) {
-    return null
-  }
+  if (isSpecialFolder(parentId)) return null
   return parentId
 }
-
-// ============================================================
-// 创建文件夹（统一使用弹窗）
-// ============================================================
 
 function openCreateFolderDialog(parentId: string | null = null) {
   const validParentId = getValidParentId(parentId)
@@ -270,90 +280,61 @@ async function onFolderCreated() {
 }
 
 // ============================================================
-// 顶部下拉菜单
+// 新建命令
 // ============================================================
-
 function handleCommand(command: string) {
+  const targetFolderId = currentFolderId.value
   switch (command) {
-    case 'note':
-      emit('create-note', currentFolderId.value)
-      break
-    case 'folder':
-      openCreateFolderDialog(currentFolderId.value)
-      break
-    case 'template':
-      router.push('/templates')
-      break
-    case 'upload':
-      ElMessage.info('上传文件功能开发中')
-      break
-    default:
-      break
+    case 'note-blank': emit('create-note', targetFolderId, 'blank'); break
+    case 'note-md': emit('create-note', targetFolderId, 'md'); break
+    case 'note-mind': emit('create-note', targetFolderId, 'mind'); break
+    case 'note-flow': emit('create-note', targetFolderId, 'flow'); break
+    case 'note-table': emit('create-note', targetFolderId, 'table'); break
+    case 'note-whiteboard': emit('create-note', targetFolderId, 'whiteboard'); break
+    case 'template-ai': router.push('/templates'); break
+    case 'word-import': ElMessage.info('Word转笔记功能开发中'); break
+    case 'upload-file': ElMessage.info('上传文件功能开发中'); break
+    case 'upload-folder': ElMessage.info('上传文件夹功能开发中'); break
+    case 'folder': openCreateFolderDialog(targetFolderId); break
   }
 }
 
 // ============================================================
-// 文件夹右键菜单
+// 文件夹菜单
 // ============================================================
-
 function handleFolderMenuCommand(cmd: string, folder: any) {
   switch (cmd) {
-    case 'new':
-      openCreateFolderDialog(folder.id)
-      break
+    case 'new': openCreateFolderDialog(folder.id); break
     case 'delete':
-      if (isSpecialFolder(folder.id)) {
-        ElMessage.warning('不能删除特殊目录')
-        return
-      }
+      if (isSpecialFolder(folder.id)) return ElMessage.warning('不能删除特殊目录')
       ElMessageBox.confirm(
-        `确定删除文件夹「${folder.name}」？内部所有笔记将移入回收站`,
-        '删除提示',
-        { type: 'warning' }
-      )
-        .then(() => {
-          emit('folder-delete', folder.id)
-          setTimeout(() => emit('refresh'), 300)
-        })
-        .catch(() => {})
+        `确定要删除文件夹「${folder.name}」吗？`,
+        '删除确认',
+        {
+          confirmButtonText: '确定删除',
+          cancelButtonText: '取消',
+          type: 'warning',
+        }
+      ).then(() => {
+        emit('folder-delete', folder.id)
+        setTimeout(() => emit('refresh'), 300)
+      }).catch(() => {})
       break
     case 'rename':
-      if (isSpecialFolder(folder.id)) {
-        ElMessage.warning('不能重命名特殊目录')
-        return
-      }
+      if (isSpecialFolder(folder.id)) return ElMessage.warning('不能重命名特殊目录')
       emit('folder-rename', folder)
       break
     case 'move':
-      if (isSpecialFolder(folder.id)) {
-        ElMessage.warning('不能移动特殊目录')
-        return
-      }
+      if (isSpecialFolder(folder.id)) return ElMessage.warning('不能移动特殊目录')
       emit('folder-move', folder)
       break
-    // case 'copy':
-    //   if (isSpecialFolder(folder.id)) {
-    //     ElMessage.warning('不能复制特殊目录')
-    //     return
-    //   }
-    //   emit('folder-copy', folder)
-    //   break
-    case 'more':
-      emit('folder-more', folder)
-      break
-    default:
-      break
+    case 'more': emit('folder-more', folder); break
   }
 }
-
-// ============================================================
-// 子文件夹新建（由 FolderTreeItem 触发）
-// ============================================================
 
 function submitChildCreateFolder() {
   const parentId = childCreateTargetId.value
   if (!parentId) return
-
   openCreateFolderDialog(parentId)
   childCreateTargetId.value = null
   childCreateName.value = ''
@@ -365,153 +346,634 @@ function cancelChildCreateFolder() {
 }
 
 // ============================================================
+// 退出登录
+// ============================================================
+function handleLogout() {
+  ElMessageBox.confirm('确定要退出登录吗？', '退出确认', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'info',
+  })
+    .then(() => {      
+      
+      // ✅ 正确：调用并等待异步方法
+      return userStore.logout()
+        .then(() => {
+        
+          ElMessage.success('已安全退出')
+          router.push('/login')
+        })
+        .catch((error) => {
+          console.error('退出失败:', error)
+          ElMessage.error('退出失败，请重试')
+        })
+    })
+    .catch(() => {
+      // 用户取消了操作，不做任何处理
+    })
+}
+
+// ============================================================
 // 生命周期
 // ============================================================
-
 onMounted(async () => {
-  await Promise.all([folderStore.loadTree(), tagStore.loadTags()])
+  await folderStore.loadTree()
 })
 
-defineExpose({
-  refresh: () => {
-    folderStore.loadTree()
-  }
-})
+defineExpose({ refresh: () => folderStore.loadTree() })
 </script>
 
 <style scoped>
+/* ============================================================
+   侧边栏容器
+   ============================================================ */
+.sidebar-wrapper {
+  position: relative;
+  height: 100%;
+  background: #f8fafc;
+}
+
+/* ============================================================
+   折叠切换按钮
+   ============================================================ */
+.toggle-actions {
+  position: absolute;
+  top: 12px;
+  right: -12px;
+  z-index: 100;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid #e8ecf1;
+}
+
+.toggle-actions:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(54, 113, 233, 0.2);
+  border-color: #3671e9;
+}
+
+.toggle-actions .toggle-btn {
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  color: #5a6a82;
+}
+
+.toggle-actions .toggle-btn:hover {
+  color: #3671e9;
+}
+
+/* ============================================================
+   侧边栏主体
+   ============================================================ */
 .sidebar {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 12px 14px;
-  background: #f7f6f3;
+  padding: 28px 16px 20px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f4f9 100%);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  position: relative;
 }
 
-.sidebar-header {
-  padding: 0 4px 12px;
-  flex-shrink: 0;
-}
-.logo {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1d1d1f;
+/* ============================================================
+   折叠状态
+   ============================================================ */
+.sidebar-collapsed {
+  padding: 16px 8px;
+  width: 64px;
+  min-width: 64px;
+  align-items: center;
 }
 
-.sidebar-actions .create-btn {
-  width: 100%;
+.sidebar-collapsed .user-info,
+.sidebar-collapsed .nav-label,
+.sidebar-collapsed .section-label,
+.sidebar-collapsed .section-count,
+.sidebar-collapsed .section-arrow,
+.sidebar-collapsed .nav-badge,
+.sidebar-collapsed .footer-link-row,
+.sidebar-collapsed .footer-version,
+.sidebar-collapsed .nav-divider,
+.sidebar-collapsed .nav-empty {
+  display: none !important;
+}
+
+.sidebar-collapsed .nav-item,
+.sidebar-collapsed .section-header {
   justify-content: center;
-  font-size: 13px;
-  color: #1d1d1f;
-  background: #e8e8e8;
-  border-radius: 4px;
-  padding: 8px 0;
+  padding: 10px !important;
+  gap: 0;
 }
-.create-btn:hover { background: #d0d0d0; }
-.create-btn .arrow { font-size: 12px; margin-left: 4px; }
 
-:deep(.create-menu) { min-width: 220px; padding: 8px 0; }
-.menu-title { padding: 6px 16px 10px; font-size: 14px; font-weight: 600; }
-.menu-icon { font-size: 16px; margin-right: 8px; width: 18px; text-align: center; }
-.sub-arrow { margin-left: auto; font-size: 12px; color: #8e8e93; }
-:deep(.el-dropdown-menu__item) { padding: 6px 16px; font-size: 13px; display: flex; align-items: center; }
-:deep(.el-dropdown-menu__item:hover) { background: #f5f5f5; }
+.sidebar-collapsed .nav-icon-wrapper {
+  margin: 0;
+}
 
+.sidebar-collapsed .section-children {
+  margin-left: 0 !important;
+  align-items: center;
+}
+
+.sidebar-collapsed .sidebar-user-header {
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.sidebar-collapsed .sidebar-user-header .user-avatar {
+  width: 40px !important;
+  height: 40px !important;
+}
+
+.sidebar-collapsed .avatar-status {
+  display: none !important;
+}
+
+.sidebar-collapsed .create-btn {
+  width: 40px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  border-radius: 12px;
+  min-width: 40px !important;
+}
+
+.sidebar-collapsed .create-btn span {
+  display: none;
+}
+
+.sidebar-collapsed .create-btn .el-icon {
+  margin-right: 0;
+  font-size: 20px;
+}
+
+.sidebar-collapsed :deep(.folder-tree-item .folder-item) {
+  padding-left: 0 !important;
+  justify-content: center;
+}
+
+.sidebar-collapsed :deep(.folder-tree-item .folder-item .nav-label) {
+  display: none !important;
+}
+
+.sidebar-collapsed :deep(.folder-tree-item .folder-item .nav-badge) {
+  display: none !important;
+}
+
+.sidebar-collapsed :deep(.folder-tree-item .folder-item .folder-more-dropdown) {
+  display: none !important;
+}
+
+.sidebar-collapsed :deep(.folder-tree-item .folder-item .folder-icon) {
+  margin: 0;
+}
+
+.sidebar-collapsed .footer-divider {
+  display: none !important;
+}
+
+/* ============================================================
+   用户区域
+   ============================================================ */
+.sidebar-user-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+  padding: 4px 0;
+}
+
+.avatar-wrapper {
+  position: relative;
+}
+
+.user-avatar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: 3px solid #ffffff;
+  box-shadow: 0 4px 16px rgba(54, 113, 233, 0.2);
+  transition: all 0.3s ease;
+}
+
+.user-avatar:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 24px rgba(54, 113, 233, 0.35);
+}
+
+.avatar-status {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 14px;
+  height: 14px;
+  background: #34d399;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(52, 211, 153, 0.4);
+}
+
+.user-info {
+  text-align: center;
+  transition: opacity 0.3s ease;
+}
+
+.user-name {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1a2332;
+  letter-spacing: 0.3px;
+}
+
+.user-email {
+  font-size: 12px;
+  color: #8896a8;
+  margin-top: 2px;
+  opacity: 0.8;
+}
+
+/* ============================================================
+   新建按钮
+   ============================================================ */
+.sidebar-actions {
+  margin-bottom: 24px;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.create-btn {
+  height: 48px;
+  font-size: 16px;
+  border-radius: 12px;
+  width: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 16px rgba(54, 113, 233, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.create-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(54, 113, 233, 0.4);
+}
+
+.create-btn:active {
+  transform: translateY(0px);
+}
+
+.create-btn .el-icon {
+  font-size: 20px;
+  margin-right: 8px;
+  transition: margin 0.3s ease;
+}
+
+/* ============================================================
+   导航区域
+   ============================================================ */
 .sidebar-nav {
   flex: 1;
   overflow-y: auto;
+  padding-right: 4px;
+  min-height: 0;
 }
 
+.sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: #d5dce6;
+  border-radius: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: #b8c2d0;
+}
+
+/* ============================================================
+   导航项
+   ============================================================ */
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
-  border-radius: 4px;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 14px;
-  color: #1d1d1f;
-  transition: background 0.15s;
+  transition: all 0.25s ease;
+  margin-bottom: 2px;
+  color: #4a5a72;
+  position: relative;
 }
-.nav-item:hover { background: #e8e8e8; }
-.nav-item.active { background: #e8e8e8; font-weight: 500; }
+
+.nav-item:hover {
+  background: rgba(54, 113, 233, 0.08);
+  color: #1a2332;
+}
+
+.nav-item.active {
+  background: rgba(54, 113, 233, 0.12);
+  color: #3671e9;
+}
+
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 24px;
+  background: #3671e9;
+  border-radius: 0 4px 4px 0;
+}
+
+.nav-icon-wrapper {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.nav-item:hover .nav-icon-wrapper {
+  background: rgba(54, 113, 233, 0.1);
+}
+
+.nav-item.active .nav-icon-wrapper {
+  background: rgba(54, 113, 233, 0.15);
+}
 
 .nav-icon {
-  font-size: 14px;
-  width: 20px;
-  text-align: center;
-  flex-shrink: 0;
+  font-size: 18px;
+  color: #718096;
+  transition: all 0.3s ease;
 }
+
+.nav-item.active .nav-icon {
+  color: #3671e9;
+}
+
 .nav-label {
+  flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.nav-badge {
-  font-size: 11px;
-  color: #8e8e93;
-  background: #e8e8e8;
-  padding: 0 6px;
-  border-radius: 10px;
-  min-width: 18px;
-  text-align: center;
-  flex-shrink: 0;
+  font-weight: 500;
+  transition: opacity 0.3s ease;
 }
 
-.nav-empty {
-  padding: 4px 8px 4px 24px;
-  font-size: 13px;
-  color: #8e8e93;
+.nav-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: #ffffff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 0 8px;
+  border-radius: 12px;
+  min-width: 20px;
+  height: 20px;
+  line-height: 20px;
+  text-align: center;
+  flex-shrink: 0;
+  transition: opacity 0.3s ease;
 }
 
 .nav-divider {
   height: 1px;
-  background: #e8e8e8;
-  margin: 8px 4px;
+  margin: 12px 14px;
+  background: linear-gradient(to right, transparent, #e2e8f0, transparent);
 }
 
-.nav-section { margin: 2px 0; }
+/* ============================================================
+   文件夹区域
+   ============================================================ */
+.nav-section {
+  margin: 4px 0 6px;
+}
+
 .section-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: 4px;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 12px;
-  color: #8e8e93;
-  font-weight: 500;
-  letter-spacing: 0.3px;
+  font-size: 14px;
+  transition: all 0.25s ease;
+  color: #4a5a72;
+  position: relative;
 }
-.section-header:hover { background: #e8e8e8; }
+
+.section-header:hover {
+  background: rgba(54, 113, 233, 0.08);
+  color: #1a2332;
+}
+
+.section-header.active {
+  background: rgba(54, 113, 233, 0.12);
+  color: #3671e9;
+}
+
+.section-header.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 24px;
+  background: #3671e9;
+  border-radius: 0 4px 4px 0;
+}
+
+.section-icon {
+  font-size: 18px;
+  color: #718096;
+  transition: all 0.3s ease;
+}
+
+.section-header.active .section-icon {
+  color: #3671e9;
+}
+
+.section-label {
+  flex: 1;
+  font-weight: 500;
+  transition: opacity 0.3s ease;
+}
+
 .section-count {
   font-size: 11px;
-  color: #8e8e93;
-  background: #e8e8e8;
-  padding: 0 6px;
+  color: #8896a8;
+  background: #e8ecf1;
+  padding: 0 8px;
   border-radius: 10px;
   min-width: 18px;
+  height: 18px;
+  line-height: 18px;
   text-align: center;
+  transition: opacity 0.3s ease;
 }
-.section-arrow {
-  font-size: 12px;
-  transition: transform 0.2s;
-}
-.section-arrow.expanded { transform: rotate(180deg); }
-.section-children { margin-left: 4px; }
 
-.sidebar-footer {
-  padding: 12px 4px 0;
-  border-top: 1px solid #e8e8e8;
-  flex-shrink: 0;
+.section-arrow {
+  font-size: 14px;
+  color: #a0aec0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
 }
-.user-info {
+
+.section-arrow.expanded {
+  transform: rotate(180deg);
+  color: #3671e9;
+}
+
+/* ============================================================
+   文件夹子项
+   ============================================================ */
+.section-children {
+  margin-left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.nav-empty {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #a0aec0;
+  justify-content: center;
 }
-.user-name { font-size: 14px; color: #1d1d1f; }
 
-.sidebar-nav::-webkit-scrollbar { width: 2px; }
-.sidebar-nav::-webkit-scrollbar-thumb { background: #d0d0d0; border-radius: 2px; }
+.nav-empty .el-icon {
+  font-size: 16px;
+}
+
+/* ============================================================
+   底部区域
+   ============================================================ */
+.sidebar-footer {
+  margin-top: auto;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.3s ease;
+}
+
+.footer-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, #e2e8f0, transparent);
+}
+
+.footer-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.footer-link-row {
+  display: flex;
+  gap: 20px;
+  transition: opacity 0.3s ease;
+}
+
+.footer-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #8896a8;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.footer-link .el-icon {
+  font-size: 16px;
+}
+
+.footer-link:hover {
+  color: #3671e9;
+  background: rgba(54, 113, 233, 0.08);
+}
+
+.footer-version {
+  text-align: center;
+  font-size: 11px;
+  color: #b8c2d0;
+  letter-spacing: 0.5px;
+  transition: opacity 0.3s ease;
+}
+
+/* ============================================================
+   响应式
+   ============================================================ */
+@media (max-width: 768px) {
+  .sidebar {
+    padding: 20px 12px 16px;
+  }
+
+  .sidebar-collapsed {
+    width: 56px;
+    min-width: 56px;
+    padding: 12px 6px;
+  }
+
+  .sidebar-collapsed .create-btn {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+  }
+
+  .sidebar-collapsed .sidebar-user-header .user-avatar {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .toggle-actions {
+    right: -10px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .toggle-actions .toggle-btn .el-icon {
+    font-size: 14px;
+  }
+
+  .footer-link-row {
+    gap: 12px;
+  }
+
+  .footer-link {
+    font-size: 12px;
+    padding: 2px 6px;
+  }
+
+  .footer-link .el-icon {
+    font-size: 14px;
+  }
+}
 </style>

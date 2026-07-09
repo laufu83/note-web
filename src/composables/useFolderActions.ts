@@ -353,9 +353,9 @@ export function useFolderActions(options: ActionOptions) {
     switch (cmd) {
       case 'open':
         if (currentFolderId.value) {
-          router.push(`/file/${currentFolderId.value}/note/${note.id}`)
+          router.push(`/file/${currentFolderId.value}/note/${note.id}?edit`)
         } else {
-          router.push(`/note/${note.id}`)
+          router.push(`/note/${note.id}?edit`)
         }
         break
       case 'star':

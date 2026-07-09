@@ -15,11 +15,13 @@
     </div>
 
     <div class="content-area">
+      <!-- ✅ 修复：将 create-note 传递给组件 -->
       <router-view #default="{ Component }">
         <component
           :is="Component"
           ref="folderViewRef"
           :key="$route.fullPath"
+          :create-note="handleCreateNote"
         />
       </router-view>
     </div>
@@ -48,12 +50,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref,onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAppStore } from '@/store/modules/app'
 import { useFolderStore } from '@/store/modules/folder'
 import { useNoteStore } from '@/store/modules/note'
+import { noteApi } from '@/api/note'
 import AppSidebar from './AppSidebar.vue'
 import CreateFolderDialog from '@/components/business/CreateFolderDialog.vue'
 import RenameFolderDialog from '@/components/business/RenameFolderDialog.vue'
@@ -80,6 +83,15 @@ const showMoveDialog = ref(false)
 const moveTarget = ref<any>(null)
 
 // ============================================================
+// 特殊目录
+// ============================================================
+const SPECIAL_FOLDERS = ['recent', 'starred', 'trash'] as const
+
+function isSpecialFolder(id: string | null): boolean {
+  return id !== null && SPECIAL_FOLDERS.includes(id as any)
+}
+
+// ============================================================
 // 创建相关
 // ============================================================
 
@@ -88,50 +100,140 @@ function handleCreateFolder(parentId: string | null) {
   showCreateFolder.value = true
 }
 
-function handleCreateNote(folderId: string | null) {
-  if (folderId) {
-    router.push(`/file/${folderId}/note/new`)
-  } else {
-    router.push('/note/new')
+// ============================================================
+// ✅ 创建笔记
+// ============================================================
+async function handleCreateNote(folderId: string | null, type: string = 'blank') {
+  // 如果是特殊目录，folderId 设为 null
+  const validFolderId = isSpecialFolder(folderId) ? null : folderId
+
+  try {
+    // 根据类型自动填充标题后缀
+    const titleMap: Record<string, string> = {
+      blank: '.txt',
+      md: '.md',
+      mind: '（脑图）',
+      flow: '（流程图）',
+      table: '（表格）',
+      whiteboard: '（白板）',
+    }
+    
+    const suffix = titleMap[type] || '.md'
+    const title = `无标题${suffix}`
+
+    const noteData: any = {
+      title,
+      content: '',
+      folderId: validFolderId,
+      type,
+    }
+
+    const newNote = await noteApi.create(noteData)
+    console.log('创建笔记成功:', newNote)
+
+    await clearAllCache()
+
+    if (newNote && newNote.id) {
+      // ✅ 使用 validFolderId 跳转
+      if (validFolderId) {
+        router.push(`/file/${validFolderId}/note/${newNote.id}?edit`)
+      } else {
+        router.push(`/note/${newNote.id}?edit`)
+      }
+    } else {
+      // 降级方案
+      if (validFolderId) {
+        router.push(`/file/${validFolderId}/note`)
+      } else {
+        router.push(`/note`)
+      }
+    }
+  } catch (error) {
+    console.error('创建笔记失败:', error)
+    ElMessage.error('创建笔记失败，请重试')
+    if (validFolderId) {
+      router.push(`/file/${validFolderId}/note`)
+    } else {
+      router.push(`/note`)
+    }
   }
 }
 
+// ============================================================
+// ✅ 清理所有缓存（带防抖）
+// ============================================================
+let clearCacheTimer: number | null = null
+
+async function clearAllCache() {
+  // 防抖：避免短时间内多次调用
+  if (clearCacheTimer) {
+    clearTimeout(clearCacheTimer)
+  }
+  
+  return new Promise((resolve) => {
+    clearCacheTimer = window.setTimeout(async () => {
+      try {
+        // 1. 刷新文件夹树（左侧边栏）
+        await folderStore.loadTree()
+
+        // 2. 刷新侧边栏
+        if (sidebarRef.value && typeof sidebarRef.value.refresh === 'function') {
+          sidebarRef.value.refresh()
+        }
+
+        // 3. 刷新 FolderView（中间列）
+        if (folderViewRef.value) {
+          if (typeof folderViewRef.value.refresh === 'function') {
+            await folderViewRef.value.refresh()
+          }
+          if (typeof folderViewRef.value.refreshWithCacheClear === 'function') {
+            await folderViewRef.value.refreshWithCacheClear()
+          }
+        }
+        resolve(true)
+      } catch (error) {
+        console.error('清理缓存失败:', error)
+        resolve(false)
+      } finally {
+        clearCacheTimer = null
+      }
+    }, 100)
+  })
+}
+
+// ============================================================
+// 文件夹创建成功
+// ============================================================
 async function onFolderCreated() {
-  await folderStore.loadTree()
+  await clearAllCache()
   ElMessage.success('文件夹创建成功')
-  refreshCurrentView()
 }
 
 // ============================================================
 // 删除文件夹
 // ============================================================
-
 async function handleFolderDelete(folderId: string) {
   try {
-    // 检查是否在回收站中
     const isInTrash = route.path.includes('/file/trash')
-    
+
     if (isInTrash) {
-      // 如果在回收站，永久删除
       await ElMessageBox.confirm(
         '确定要永久删除此文件夹吗？此操作不可恢复！',
         '永久删除提示',
-        { 
+        {
           type: 'warning',
           confirmButtonText: '确定删除',
-          cancelButtonText: '取消'
+          cancelButtonText: '取消',
         }
       )
       await folderStore.deleteFolder(folderId)
       ElMessage.success('文件夹已永久删除')
     } else {
-      // 普通删除，移入回收站
       await folderStore.deleteFolder(folderId)
       ElMessage.success('文件夹已移入回收站')
     }
-    
-    await folderStore.loadTree()
-    refreshCurrentView()
+
+    await clearAllCache()
   } catch (error: any) {
     if (error !== 'cancel') {
       ElMessage.error(error.message || '删除失败')
@@ -142,74 +244,44 @@ async function handleFolderDelete(folderId: string) {
 // ============================================================
 // 重命名文件夹
 // ============================================================
-
 function handleFolderRename(folder: any) {
   renameTarget.value = folder
   showRenameDialog.value = true
 }
 
 async function onRenameSuccess() {
-  await folderStore.loadTree()
+  await clearAllCache()
   ElMessage.success('重命名成功')
-  refreshCurrentView()
 }
 
 // ============================================================
 // 移动文件夹
 // ============================================================
-
 function handleFolderMove(folder: any) {
   moveTarget.value = folder
   showMoveDialog.value = true
 }
 
 async function onMoveSuccess() {
-  await folderStore.loadTree()
+  await clearAllCache()
   ElMessage.success('移动成功')
-  refreshCurrentView()
 }
-
-// ============================================================
-// 复制文件夹
-// ============================================================
-
-// async function handleFolderCopy(folder: any) {
-//   try {
-//     // 复制文件夹
-//     await folderStore.copyFolder?.(folder.id) || (async () => {
-//       // 如果 store 没有 copyFolder 方法，使用创建方式
-//       const newFolder = await folderStore.createFolder({
-//         name: `${folder.name} - 副本`,
-//         parentId: folder.parentId
-//       })
-//       // 如果有笔记，可以复制笔记（这里简化处理）
-//       return newFolder
-//     })()
-    
-//     await folderStore.loadTree()
-//     ElMessage.success(`已复制文件夹「${folder.name}」`)
-//     refreshCurrentView()
-//   } catch (error: any) {
-//     ElMessage.error(error.message || '复制失败')
-//   }
-// }
 
 // ============================================================
 // 刷新当前视图
 // ============================================================
-
 function refreshCurrentView() {
-  // 方法1: 通过组件引用刷新
+  // 通过组件引用刷新
   if (folderViewRef.value && typeof folderViewRef.value.refresh === 'function') {
     folderViewRef.value.refresh()
   }
-  
-  // 方法2: 通过侧边栏引用刷新
+
+  // 通过侧边栏引用刷新
   if (sidebarRef.value && typeof sidebarRef.value.refresh === 'function') {
     sidebarRef.value.refresh()
   }
-  
-  // 方法3: 如果当前是文件夹视图，重新加载数据
+
+  // 如果当前是文件夹视图，重新加载数据
   const folderId = route.params.folderId as string
   if (folderId && folderViewRef.value) {
     if (typeof folderViewRef.value.loadData === 'function') {
@@ -221,18 +293,17 @@ function refreshCurrentView() {
 // ============================================================
 // 侧边栏刷新
 // ============================================================
-
 function handleSidebarRefresh() {
   console.log('[AppLayout] 收到刷新事件')
-  refreshCurrentView()
+  clearAllCache()
 }
 
 // ============================================================
 // 暴露刷新方法给其他组件
 // ============================================================
-
 defineExpose({
-  refresh: refreshCurrentView
+  refresh: refreshCurrentView,
+  clearAllCache,
 })
 </script>
 

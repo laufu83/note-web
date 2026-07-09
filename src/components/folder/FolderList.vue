@@ -1,4 +1,4 @@
-<!-- src/components/FolderList.vue -->
+<!-- src/components/folder/FolderList.vue -->
 <template>
   <div class="column-list" v-loading="loading">
     <div v-if="refreshing" class="refresh-indicator">
@@ -35,15 +35,15 @@
       v-if="!loading && notes.length === 0 && (showFolders ? folders.length === 0 : true)"
       :text="emptyText"
       :button-text="emptyButtonText"
-      @create="emit('createNote')"
+      @create="emit('create-note')"
     />
   </div>
 </template>
 
 <script setup lang="ts">
 import { Loading } from '@element-plus/icons-vue'
-import FolderItem from '@/components/FolderItem.vue'
-import NoteItem from '@/components/NoteItem.vue'
+import FolderItem from './FolderItem.vue'
+import NoteItem from './NoteItem.vue'
 import EmptyState from './EmptyState.vue'
 
 defineProps<{
@@ -64,7 +64,7 @@ const emit = defineEmits<{
   (e: 'selectFolder', id: string): void
   (e: 'folderAction', command: string, folder: any): void
   (e: 'noteAction', command: string, note: any): void
-  (e: 'createNote'): void
+  (e: 'create-note'): void
 }>()
 </script>
 

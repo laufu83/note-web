@@ -24,7 +24,7 @@
       
       <!-- 子文件夹数量徽标 -->
       <span v-if="hasChildren" class="nav-badge child-count">
-        {{ folder.children.length }}
+        <!-- {{ folder.children.length }} -->
       </span>
 
       <el-dropdown

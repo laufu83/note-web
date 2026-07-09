@@ -1,4 +1,5 @@
-<!-- src/layout/FolderView.vue -->
+<!-- src/views/layout/FolderView.vue -->
+
 <template>
   <div class="folder-view">
     <!-- 中间列 -->
@@ -37,7 +38,7 @@
         @select-folder="goToFolder"
         @folder-action="handleFolderAction"
         @note-action="handleNoteAction"
-        @create-note="createNewNote"
+        @create-note="handleCreateNoteFromProps"
       />
     </div>
 
@@ -51,7 +52,6 @@
           :is="Component"
           :note-id="getNoteId(currentRoute)"
           :folder-id="getFolderId(currentRoute)"
-          :is-new="getIsNew(currentRoute)"
           @note-created="handleNoteCreated"
           @note-updated="handleNoteUpdated"
           @note-deleted="handleNoteDeleted"
@@ -87,7 +87,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, nextTick } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAppStore } from '@/store/modules/app'
@@ -96,10 +96,10 @@ import { useTagStore } from '@/store/modules/tag'
 import { useFolderData } from '@/composables/useFolderData'
 import { useFolderNavigation } from '@/composables/useFolderNavigation'
 import { useFolderActions } from '@/composables/useFolderActions'
-import FolderSearchBar from '@/components/FolderSearchBar.vue'
-import FolderHeader from '@/components/FolderHeader.vue'
-import FolderList from '@/components/FolderList.vue'
-import FolderDialogs from '@/components/FolderDialogs.vue'
+import FolderSearchBar from '@/components/folder/FolderSearchBar.vue'
+import FolderHeader from '@/components/folder/FolderHeader.vue'
+import FolderList from '@/components/folder/FolderList.vue'
+import FolderDialogs from '@/components/folder/FolderDialogs.vue'
 
 // ============================================================
 // Store & Router
@@ -115,6 +115,7 @@ const tagStore = useTagStore()
 // ============================================================
 const props = defineProps<{
   folderId?: string
+  createNote?: (folderId: string | null) => void
 }>()
 
 const emit = defineEmits<{
@@ -125,7 +126,7 @@ const emit = defineEmits<{
 }>()
 
 // ============================================================
-// 工具函数（从路由提取参数）
+// 工具函数
 // ============================================================
 const getFolderId = (route: any): string | null => {
   return props.folderId || route.params.folderId || route.query.folderId || null
@@ -133,11 +134,6 @@ const getFolderId = (route: any): string | null => {
 
 const getNoteId = (route: any): string | null => {
   return route.params.noteId || route.params.id || null
-}
-
-const getIsNew = (route: any): boolean => {
-  const noteId = getNoteId(route)
-  return !noteId || noteId === '' || noteId === 'new'
 }
 
 // ============================================================
@@ -152,8 +148,6 @@ const {
   folders,
   total,
   searchKeyword,
-  currentPage,
-  pageSize,
   tagList,
   filters,
   viewMode,
@@ -172,7 +166,6 @@ const {
   isRecentView,
   isTrashView,
   isStarredView,
-  currentView,
   loadData,
   refreshData,
   onFolderChange,
@@ -181,9 +174,7 @@ const {
   handleViewModeChange,
   applyFilters,
   resetFilters,
-  toggleNoteSelection,
   selectFirstItem,
-  handleUrlNoteSelection,
   findFolderName,
   findFolderParentId,
   setRedirecting,
@@ -195,9 +186,7 @@ const {
   showBackButton,
   goToFolder,
   goBack,
-  createNewNote,
   handleFolderStatus,
-  handleClearNewNote,
   handleNoteCancel
 } = useFolderNavigation({
   currentFolderId,
@@ -251,41 +240,79 @@ const {
 })
 
 // ============================================================
-// ✅ 防抖刷新
+// ✅ 统一的刷新方法（刷新树 + 列表）
+// ============================================================
+async function refreshAll() {
+  console.log('[FolderView] 刷新所有数据')
+  await folderStore.loadTree()  // 刷新左侧文件夹树
+  await refreshData()           // 刷新中间列表
+  selectFirstItem()             // 重新选中
+}
+
+// ============================================================
+// ✅ 防抖刷新（用于快速连续操作）
 // ============================================================
 let refreshTimer: number | null = null
 
-function refreshDataWithDebounce(delay: number = 300) {
+function refreshAllDebounced(delay: number = 300) {
   if (refreshTimer) {
     clearTimeout(refreshTimer)
   }
-  refreshTimer = window.setTimeout(() => {
-    refreshData()
+  refreshTimer = window.setTimeout(async () => {
+    await refreshAll()
     refreshTimer = null
   }, delay)
 }
 
 // ============================================================
-// 事件处理
+// ✅ 本地包装：调用父组件的创建笔记方法
 // ============================================================
-function handleNoteCreated() {
-  refreshDataWithDebounce()
+function handleCreateNoteFromProps() {
+  if (props.createNote) {
+    props.createNote(currentFolderId.value)
+  } else {
+    router.push('/note')
+  }
+}
+
+// ============================================================
+// ✅ 事件处理
+// ============================================================
+async function handleNoteCreated() {
+  console.log('[FolderView] 笔记已创建，刷新所有数据')
+  await refreshAll()
   emit('note-created')
 }
 
-function handleNoteUpdated() {
-  refreshDataWithDebounce()
+async function handleNoteUpdated() {
+  console.log('[FolderView] 笔记已更新，刷新所有数据')
+  await refreshAll()
   emit('note-updated')
 }
 
-function handleNoteDeleted() {
-  refreshDataWithDebounce()
+async function handleNoteDeleted() {
+  console.log('[FolderView] 笔记已删除，刷新所有数据')
+  await refreshAll()
   emit('note-deleted')
+  
+  // 删除后跳转
   if (currentFolderId.value && !isSpecialView.value) {
     router.push(`/file/${currentFolderId.value}`)
   } else {
     router.push('/')
   }
+}
+
+async function handleClearNewNote() {
+  console.log('[FolderView] 清除新建状态')
+  await refreshAll()
+  
+  if (currentFolderId.value && !isSpecialView.value) {
+    router.push(`/file/${currentFolderId.value}`)
+  } else {
+    router.push('/')
+  }
+  emit('clear-new-note')
 }
 
 // ============================================================
@@ -295,10 +322,8 @@ function syncSelectedNote() {
   const urlNoteId = route.params.noteId as string | null
   if (urlNoteId) {
     const exists = notes.value.some(n => n.id === urlNoteId)
-    if (exists) {
-      if (selectedNoteId.value !== urlNoteId) {
-        selectedNoteId.value = urlNoteId
-      }
+    if (exists && selectedNoteId.value !== urlNoteId) {
+      selectedNoteId.value = urlNoteId
       return true
     }
   }
@@ -306,35 +331,29 @@ function syncSelectedNote() {
 }
 
 // ============================================================
-// ✅ 监听：目录变化时处理缓存
+// ✅ 监听：目录变化
 // ============================================================
 watch(
   () => currentFolderId.value,
   (newFolderId, oldFolderId) => {
-    const newId = newFolderId ?? null
-    const oldId = oldFolderId ?? null
-    if (newId !== oldId) {
-      onFolderChange(newId, oldId)
+    if (newFolderId !== oldFolderId) {
+      onFolderChange(newFolderId ?? null, oldFolderId ?? null)
     }
   },
   { immediate: true }
 )
 
 // ============================================================
-// ✅ 监听：笔记ID变化时，只更新选中状态（不刷新数据）
+// ✅ 监听：笔记ID变化 → 更新选中状态
 // ============================================================
 watch(
   () => route.params.noteId,
-  (newNoteId, oldNoteId) => {
-    if (newNoteId === oldNoteId) return
-    
+  (newNoteId) => {
     if (newNoteId) {
       const exists = notes.value.some(n => n.id === newNoteId)
       if (exists) {
         selectedNoteId.value = newNoteId as string
       }
-      // ✅ 如果笔记不在列表中，不改变选中状态
-      // 等待 notes 变化时再同步
     } else {
       selectFirstItem()
     }
@@ -343,35 +362,18 @@ watch(
 )
 
 // ============================================================
-// ✅ 监听：notes 变化时，同步选中状态（确保高亮）
+// ✅ 监听：notes 变化 → 同步选中状态
 // ============================================================
 watch(
   () => notes.value,
-  (newNotes) => {
-    const urlNoteId = route.params.noteId as string | null
-    if (urlNoteId) {
-      const exists = newNotes.some(n => n.id === urlNoteId)
-      if (exists) {
-        if (selectedNoteId.value !== urlNoteId) {
-          selectedNoteId.value = urlNoteId
-        }
-      } else if (newNotes.length > 0) {
-        // 当前选中的笔记不在列表中，选中第一个
-        if (!selectedNoteId.value || !newNotes.some(n => n.id === selectedNoteId.value)) {
-          selectedNoteId.value = newNotes[0].id
-        }
-      } else {
-        selectedNoteId.value = null
-      }
-    } else if (newNotes.length > 0 && !selectedNoteId.value) {
-      selectedNoteId.value = newNotes[0].id
-    }
+  () => {
+    syncSelectedNote()
   },
   { deep: false, immediate: true }
 )
 
 // ============================================================
-// ✅ 监听：路由路径变化（从详情页返回）
+// ✅ 监听：从详情页返回文件夹
 // ============================================================
 watch(
   () => route.path,
@@ -384,9 +386,7 @@ watch(
 
     if (wasNotePage && isNowFolderMain) {
       setRedirecting(false)
-      setTimeout(() => {
-        refreshData()
-      }, 300)
+      refreshAllDebounced()
     }
   }
 )
@@ -406,10 +406,12 @@ onMounted(async () => {
 // 暴露方法
 // ============================================================
 defineExpose({
-  refresh: refreshData,
+  refresh: refreshAll,
+  refreshData,
   loadData,
   syncSelectedNote,
-  getSelectedNoteId: () => selectedNoteId.value
+  getSelectedNoteId: () => selectedNoteId.value,
+  refreshWithCacheClear: refreshAll
 })
 </script>
 

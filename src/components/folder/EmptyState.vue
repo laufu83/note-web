@@ -1,4 +1,4 @@
-<!-- src/components/EmptyState.vue -->
+<!-- src/components/folder/EmptyState.vue -->
 <template>
   <div class="empty-state">
     <div class="empty-svg">

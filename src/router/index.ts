@@ -73,10 +73,11 @@ const routes = [
             path: 'note/:noteId',
             name: 'FileNoteDetail',
             component: () => import('@/views/main/NoteDetail.vue'),
-            props: (route: any) => ({
+            props: (route: any) => (
+              {
               noteId: route.params.noteId,
               folderId: route.params.folderId,
-              isNew: false,
+              isEdit: ('edit' in route.query)
             }),
           },
         ],

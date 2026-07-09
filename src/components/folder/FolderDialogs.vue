@@ -1,4 +1,4 @@
-<!-- src/components/FolderDialogs.vue -->
+<!-- src/components/folder/FolderDialogs.vue -->
 <template>
   <!-- 筛选对话框 -->
   <el-dialog v-model="filterVisible" title="高级筛选" width="420px">

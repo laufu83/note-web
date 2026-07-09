@@ -77,18 +77,6 @@ export function useFolderNavigation(options: NavigationOptions) {
     }
   }
 
-  function createNewNote() {
-    if (isRecentView.value || isTrashView.value || isStarredView.value) {
-      router.push('/note')
-      return
-    }
-    const folderId = currentFolderId.value
-    if (folderId) {
-      router.push(`/file/${folderId}/note`)
-    } else {
-      router.push('/note')
-    }
-  }
 
   let statusTimer: number | null = null
 
@@ -152,8 +140,7 @@ export function useFolderNavigation(options: NavigationOptions) {
   return {
     showBackButton,
     goToFolder,
-    goBack,
-    createNewNote,
+    goBack,   
     handleFolderStatus,
     handleClearNewNote,
     handleNoteCancel,

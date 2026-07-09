@@ -1,5 +1,5 @@
 // src/composables/useNoteSave.ts
-import { ref, type Ref } from 'vue'
+import { ref, computed,type Ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { Router } from 'vue-router'
 
@@ -20,11 +20,13 @@ interface SaveOptions {
   editTags: Ref<any[]>
   currentFolderId: Ref<string | null>
   currentNoteId: Ref<string | null>
-  isNewNote: Ref<boolean>
+  isEditNote: Ref<boolean>
   noteApi: any
   router: Router
   noteStore: any
   emit: any
+    // 新增：生成带 .md 的完整标题方法
+  getFullSaveTitle: () => string
   onSaveSuccess?: (noteId: string) => void
 }
 
@@ -35,11 +37,12 @@ export function useNoteSave(options: SaveOptions) {
     editTags,
     currentFolderId,
     currentNoteId,
-    isNewNote,
+    isEditNote,
     noteApi,
     router,
     noteStore,
     emit,
+    getFullSaveTitle, // 接收标题处理函数
     onSaveSuccess,
   } = options
 
@@ -48,10 +51,11 @@ export function useNoteSave(options: SaveOptions) {
   let saveTimer: number | null = null
 
   async function autoSave() {
-    if (isNewNote.value || !currentNoteId.value) return
+    if ( !currentNoteId.value) return
     try {
       const data: CreateNoteRequest = {
-        title: editTitle.value,
+           // 替换：使用带 .md 的标题
+        title: getFullSaveTitle(),
         content: editContent.value,
         tagIds: editTags.value.map(t => t.id),
       }
@@ -61,24 +65,30 @@ export function useNoteSave(options: SaveOptions) {
       saveStatus.value = '保存失败'
     }
   }
-
+  const isSpecialView = computed(() => {
+    const id = currentFolderId.value
+    return id === 'recent' || id === 'starred' || id === 'trash'||id==='root'
+  })
   async function handleSave(): Promise<{ id: string } | null> {
     saving.value = true
     saveStatus.value = '保存中...'
     try {
       const data: CreateNoteRequest = {
-        title: editTitle.value,
+            // 替换：使用带 .md 的标题
+        title: getFullSaveTitle(),
         content: editContent.value,
         tagIds: editTags.value.map(t => t.id),
       }
       
       // ✅ 新建笔记时添加 folderId
-      if (isNewNote.value && currentFolderId.value) {
+      if (currentFolderId.value&&isSpecialView) {
+        data.folderId = null
+      }else{
         data.folderId = currentFolderId.value
       }
       
       let result
-      if (isNewNote.value) {
+      if (!currentNoteId.value) {
         result = await noteApi.create(data)
         ElMessage.success('笔记创建成功')
         emit('note-created')

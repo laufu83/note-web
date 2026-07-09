@@ -49,9 +49,10 @@ export function useFolderData(options: { folderId?: string }) {
   const isRecentView = computed(() => currentFolderId.value === 'recent')
   const isStarredView = computed(() => currentFolderId.value === 'starred')
   const isTrashView = computed(() => currentFolderId.value === 'trash')
+  const isRootView = computed(() => currentFolderId.value === 'root')
   const isSpecialView = computed(() => {
     const id = currentFolderId.value
-    return id === 'recent' || id === 'starred' || id === 'trash'
+    return id === 'recent' || id === 'starred' || id === 'trash'||id==='root'
   })
   const isNotePage = computed(() => route.path.includes('/note'))
   const isFolderMainPage = computed(() => {
@@ -64,6 +65,7 @@ export function useFolderData(options: { folderId?: string }) {
     if (isTrashView.value) return 'trash'
     if (isStarredView.value) return 'starred'
     if (isRecentView.value) return 'recent'
+    if (isRootView.value) return 'root'
     if (currentFolderId.value) return 'folder'
     if (route.path.includes('/note/')) return 'note'
     return 'all'
@@ -73,6 +75,7 @@ export function useFolderData(options: { folderId?: string }) {
     if (isRecentView.value) return false
     if (isTrashView.value) return true
     if (isStarredView.value) return false
+    if (isRootView.value) return true
     return currentView.value === 'folder' && currentFolderId.value !== null
   })
 
@@ -80,6 +83,7 @@ export function useFolderData(options: { folderId?: string }) {
     if (isStarredView.value) return '⭐ 星标笔记'
     if (isTrashView.value) return '🗑️ 回收站'
     if (isRecentView.value) return '🕐 最近文件'
+    if (isRootView.value) return '我的文件夹'
     if (currentView.value === 'folder' && currentFolderId.value) {
       const name = findFolderName(folderStore.tree, currentFolderId.value)
       return name || '文件夹'
@@ -242,14 +246,15 @@ export function useFolderData(options: { folderId?: string }) {
         totalCount = notesData.length
         foldersData = []
       }
-      else if (currentView.value === 'folder' && currentFolderId.value) {
-        const folderRes = await folderApi.getChildren(currentFolderId.value, { page: 1, pageSize: 100 })
+      else if (showFolders) {
+        const validFolderId = currentFolderId.value!=='root' ? currentFolderId.value : null
+        const folderRes = await folderApi.getChildren( validFolderId, { page: 1, pageSize: 100 })
         foldersData = folderRes.items || []
 
         const params: any = {
           page: currentPage.value,
           pageSize: pageSize.value,
-          folderId: currentFolderId.value
+          folderId: validFolderId
         }
         
         if (searchKeyword.value) {
@@ -316,7 +321,7 @@ export function useFolderData(options: { folderId?: string }) {
     if (refreshing.value) return
     refreshing.value = true
     try {
-      const cacheKey = getCacheKey()
+     // const cacheKey = getCacheKey()
       cache.clearCacheByFolderId(currentFolderId.value)
       await loadData(true)
     } finally {
