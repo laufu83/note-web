@@ -18,7 +18,7 @@
       <!-- ✅ 修复：将 create-note 传递给组件 -->
       <router-view #default="{ Component }">
         <component
-          :is="Component"
+          :is="Component as Component"
           ref="folderViewRef"
           :key="$route.fullPath"
           :create-note="handleCreateNote"
@@ -51,6 +51,7 @@
 
 <script setup lang="ts">
 import { ref,onMounted } from 'vue'
+import type{Component} from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAppStore } from '@/store/modules/app'

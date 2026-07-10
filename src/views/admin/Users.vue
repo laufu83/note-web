@@ -136,7 +136,7 @@ async function loadUsers() {
       status: filterStatus.value,
     })
     users.value = result.items
-    total.value = result.pagination.total
+    total.value = result.total
   } finally {
     loading.value = false
   }

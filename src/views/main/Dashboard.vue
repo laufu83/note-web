@@ -43,7 +43,7 @@
           </div>
         </div>
         <div class="item-actions">
-          <el-dropdown trigger="click" @command="(cmd) => handleItemCommand(cmd, item)">
+          <el-dropdown trigger="click" @command="(cmd:string) => handleItemCommand(cmd, item)">
             <el-button size="small" text>
               <el-icon><MoreFilled /></el-icon>
             </el-button>

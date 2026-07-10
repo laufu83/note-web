@@ -18,11 +18,11 @@
     "vue-router": "^4.3.0"
   },
   "devDependencies": {
-    "@types/node": "^26.1.0",
+    "@types/node": "^20.16.0",
     "@vitejs/plugin-vue": "^5.0.0",
     "sass": "^1.77.0",
-    "typescript": "^5.4.0",
+    "typescript": "^5.5.4",
     "vite": "^5.2.0",
-    "vue-tsc": "^2.0.0"
+    "vue-tsc": "^2.1.0"
   }
 }

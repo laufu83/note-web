@@ -13,8 +13,8 @@
         :key="folder.id"
         :folder="folder"
         :is-trash="isTrash"
-        @select="(id) => emit('selectFolder', id)"
-        @action="(cmd, data) => emit('folderAction', cmd, data)"
+        @select="(id:string) => emit('selectFolder', id)"
+        @action="(cmd:string, data:any) => emit('folderAction', cmd, data)"
       />
     </template>
 
@@ -27,7 +27,7 @@
       :selected="selectedNoteId === note.id"
       :is-trash="isTrash"
       @select="emit('selectNote', note)"
-      @action="(cmd) => emit('noteAction', cmd, note)"
+      @action="(cmd:string) => emit('noteAction', cmd, note)"
     />
 
     <!-- 空状态 -->

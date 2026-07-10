@@ -130,7 +130,7 @@ async function loadLogs() {
     }
     const result = await adminApi.getLogs(params)
     logs.value = result.items
-    total.value = result.pagination.total
+    total.value = result.total
   } finally {
     loading.value = false
   }

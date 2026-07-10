@@ -14,7 +14,7 @@ export const useTemplateStore = defineStore('template', () => {
     try {
       const result = await templateApi.list(params)
       templates.value = result.items
-      total.value = result.pagination.total
+      total.value = result.total
       return result
     } finally {
       loading.value = false
