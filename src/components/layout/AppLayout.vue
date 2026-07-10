@@ -104,6 +104,7 @@ function handleCreateFolder(parentId: string | null) {
 // ✅ 创建笔记
 // ============================================================
 async function handleCreateNote(folderId: string | null, type: string = 'blank') {
+  console.log('folderId:', folderId, 'type:', type)
   // 如果是特殊目录，folderId 设为 null
   const validFolderId = isSpecialFolder(folderId) ? null : folderId
 

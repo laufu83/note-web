@@ -12,88 +12,20 @@
       @toggle-fullscreen="toggleFullscreen"
     />
 
-    <!-- 标签区域 -->
-    <div class="note-tags-area" v-if="!showPreview">
-      <div class="tags-wrapper">
-        <div class="tags-list">
-          <!-- 标签列表 -->
-          <el-tag
-            v-for="tag in editTags"
-            :key="tag.id"
-            size="default"
-            closable
-            class="note-tag"
-            :style="{
-              backgroundColor: (tag.color || '#667eea') + '20',
-              borderColor: tag.color || '#667eea',
-              color: tag.color || '#667eea'
-            }"
-            @close="removeTag(tag.id)"
-            @click="handleTagClick(tag)"
-          >
-            {{ tag.name }}
-          </el-tag>
-          
-          <!-- 快速创建输入框 -->
-          <div class="tag-input-wrapper" v-if="showTagInput">
-            <el-input
-              ref="tagInputRef"
-              v-model="tagInputValue"
-              size="small"
-              placeholder="标签名，回车创建"
-              clearable
-              @keydown.enter="createTagFromInput"
-              @blur="handleTagInputBlur"
-              @keydown.esc="cancelTagInput"
-            >
-              <template #prefix>#</template>
-              <template #append>
-                <el-button 
-                  size="small" 
-                  type="primary" 
-                  @click="createTagFromInput"
-                  :loading="isCreatingTag"
-                >
-                  创建
-                </el-button>
-              </template>
-            </el-input>
-          </div>
-
-          <!-- 添加按钮 -->
-          <el-button
-            v-else
-            size="small"
-            text
-            class="add-btn"
-            @click="showTagInputField"
-          >
-            <el-icon><Plus /></el-icon>
-            添加
-          </el-button>
-          
-          <!-- 批量选择 -->
-          <el-button
-            size="small"
-            text
-            class="add-btn select-btn"
-            @click="openTagDialog"
-          >
-            <el-icon><Folder /></el-icon>
-            选择
-          </el-button>
-        </div>
-        
-        <!-- 标签计数 -->
-        <div class="tags-action" v-if="editTags.length > 0">
-          <span class="tags-count">{{ editTags.length }} / {{ MAX_TAG_LIMIT }}</span>
-          <el-button text size="small" type="danger" @click="clearAllNoteTags">清空</el-button>
-        </div>
-      </div>
-    </div>
+    <!-- ✅ 标签组件 -->
+    <NoteTags
+      :tags="editTags"
+      :max-limit="MAX_TAG_LIMIT"
+      :hide-tags="showPreview"
+      @remove="handleRemoveTag"
+      @click="handleTagClick"
+      @create="handleCreateTag"
+      @clear-all="handleClearAllTags"
+      @open-dialog="openTagDialog"
+    />
 
     <!-- 编辑器 -->
-    <div class="editor-wrapper" >
+    <div class="editor-wrapper">
       <MdEditor
         ref="editorRef"
         v-model="editContent"
@@ -130,8 +62,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Folder } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { MdEditor } from 'md-editor-v3'
 import type { ToolbarNames, HeadList, ExposeParam } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
@@ -142,6 +73,7 @@ import { useFolderStore } from '@/store/modules/folder'
 import { noteApi } from '@/api/note'
 import { tagApi } from '@/api/tag'
 import NoteHeader from '@/components/note/NoteHeader.vue'
+import NoteTags from '@/components/note/NoteTags.vue'
 import NoteTagDialog from '@/components/note/NoteTagDialog.vue'
 import { useNoteContent } from '@/composables/useNoteContent'
 import { useNoteSave } from '@/composables/useNoteSave'
@@ -189,12 +121,6 @@ const saveStatus = ref('已保存')
 const allTags = ref<Tag[]>([])
 const catalog = ref<HeadList[]>([])
 const editorRef = ref<ExposeParam | null>(null)
-
-// 标签输入
-const showTagInput = ref(false)
-const tagInputValue = ref('')
-const tagInputRef = ref<any>(null)
-const isCreatingTag = ref(false)
 
 // ============================================================
 // MdEditor 配置
@@ -275,12 +201,6 @@ function openTagDialog() {
   showTagDialog.value = true
 }
 
-function clearAllNoteTags() {
-  ElMessageBox.confirm('清空所有标签？', '提示', { type: 'info' })
-    .then(() => { editTags.value = []; ElMessage.success('已清空') })
-    .catch(() => {})
-}
-
 // ============================================================
 // 加载笔记
 // ============================================================
@@ -318,6 +238,7 @@ async function loadAllTags() {
   await refreshAllTags()
 }
 
+// 从弹窗添加标签
 function handleAddTags(selectedIds: string[]) {
   if (!selectedIds.length) { ElMessage.warning('请选择标签'); return }
   const selected = allTags.value.filter(t => selectedIds.includes(t.id))
@@ -330,6 +251,7 @@ function handleAddTags(selectedIds: string[]) {
   ElMessage.success(`已添加 ${newTags.length} 个标签`)
 }
 
+// 从弹窗创建标签
 async function handleCreateTagFromDialog(name: string) {
   const pureName = name.trim()
   if (!pureName) return
@@ -351,59 +273,42 @@ async function handleCreateTagFromDialog(name: string) {
   } catch { ElMessage.error('创建失败') }
 }
 
-function removeTag(tagId: string) {
-  ElMessageBox.confirm('移除该标签？', '提示', { type: 'info' })
-    .then(() => {
-      editTags.value = editTags.value.filter(t => t.id !== tagId)
-      ElMessage.success('已移除')
-    }).catch(() => {})
+// ✅ 从标签组件移除标签
+function handleRemoveTag(tagId: string) {
+  editTags.value = editTags.value.filter(t => t.id !== tagId)
+  ElMessage.success('已移除')
 }
 
+// ✅ 从标签组件点击标签
 function handleTagClick(tag: Tag) {
   router.push(`/file/tag/${tag.id}`)
 }
 
-function showTagInputField() {
-  showTagInput.value = true
-  tagInputValue.value = ''
-  nextTick(() => tagInputRef.value?.focus())
-}
-
-function cancelTagInput() {
-  showTagInput.value = false
-  tagInputValue.value = ''
-}
-
-function handleTagInputBlur() {
-  setTimeout(() => {
-    if (!tagInputValue.value.trim()) showTagInput.value = false
-  }, 150)
-}
-
-async function createTagFromInput() {
-  const name = tagInputValue.value.trim()
-  if (!name) { cancelTagInput(); return }
+// ✅ 从标签组件创建标签（快速输入）
+async function handleCreateTag(name: string) {
   if (!checkTagLimit()) return
-  isCreatingTag.value = true
-  try {
-    const exist = findTagByName(name)
-    if (exist) {
-      if (!editTags.value.some(t => t.id === exist.id)) {
-        editTags.value = [...editTags.value, exist]
-        ElMessage.success(`已添加 ${exist.name}`)
-      }
-      cancelTagInput()
-      return
+  const exist = findTagByName(name)
+  if (exist) {
+    if (!editTags.value.some(t => t.id === exist.id)) {
+      editTags.value = [...editTags.value, exist]
+      ElMessage.success(`已添加 ${exist.name}`)
     }
+    return
+  }
+  try {
     const res = await tagApi.create({ name })
     if (res?.id) {
       await refreshAllTags()
       editTags.value = [...editTags.value, res]
       ElMessage.success(`已创建 ${name}`)
-      cancelTagInput()
     }
   } catch { ElMessage.error('创建失败') }
-  finally { isCreatingTag.value = false }
+}
+
+// ✅ 清空所有标签
+function handleClearAllTags() {
+  editTags.value = []
+  ElMessage.success('已清空')
 }
 
 // ============================================================
@@ -509,142 +414,6 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-/* ==================== 标签区域 ==================== */
-.note-tags-area {
-  padding: 6px 20px;
-  border-bottom: 1px solid #f0f0f0;
-  flex-shrink: 0;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  background: #fafbfc;
-}
-
-.tags-wrapper {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  width: 100%;
-}
-
-.tags-list {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
-  flex: 1;
-}
-
-.tags-action {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-  font-size: 12px;
-  color: #8896a8;
-}
-
-/* 标签 */
-.note-tag {
-  cursor: pointer;
-  border-radius: 4px;
-  font-size: 12px;
-  padding: 0 8px;
-  height: 24px;
-  line-height: 22px;
-  border: 1px solid transparent;
-  transition: all 0.2s;
-  user-select: none;
-  max-width: 100px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.note-tag:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-
-.note-tag :deep(.el-tag__close) {
-  color: inherit;
-  font-size: 11px;
-  margin-left: 2px;
-}
-.note-tag :deep(.el-tag__close:hover) {
-  background: rgba(0,0,0,0.1);
-  border-radius: 50%;
-}
-
-/* 按钮 */
-.add-btn {
-  color: #8896a8;
-  padding: 0 8px;
-  font-size: 12px;
-  border-radius: 4px;
-  height: 24px;
-  line-height: 22px;
-  border: 1px dashed #d0d7e3;
-  transition: all 0.2s;
-}
-.add-btn:hover {
-  color: #667eea;
-  background: rgba(102,126,234,0.08);
-  border-color: #667eea;
-}
-.add-btn .el-icon { font-size: 13px; }
-.add-btn.select-btn { border: none; }
-.add-btn.select-btn:hover { border: none; }
-
-/* 输入框 */
-.tag-input-wrapper {
-  display: inline-flex;
-  align-items: center;
-  min-width: 180px;
-}
-.tag-input-wrapper :deep(.el-input) { height: 24px; }
-.tag-input-wrapper :deep(.el-input__wrapper) {
-  border-radius: 4px 0 0 4px;
-  padding: 0 8px;
-  background: #fff;
-  border: 1px solid #e4e7ed;
-  box-shadow: none !important;
-}
-.tag-input-wrapper :deep(.el-input__wrapper:hover) { border-color: #667eea; }
-.tag-input-wrapper :deep(.el-input__wrapper.is-focus) {
-  border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102,126,234,0.1) !important;
-}
-.tag-input-wrapper :deep(.el-input__inner) {
-  font-size: 12px;
-  height: 22px;
-  line-height: 22px;
-}
-.tag-input-wrapper :deep(.el-input__prefix) {
-  color: #8896a8;
-  font-weight: 600;
-  font-size: 13px;
-}
-.tag-input-wrapper :deep(.el-input-group__append) {
-  border-radius: 0 4px 4px 0;
-  padding: 0;
-  background: #fff;
-  border: 1px solid #e4e7ed;
-  border-left: none;
-}
-.tag-input-wrapper :deep(.el-input-group__append .el-button) {
-  border-radius: 0 4px 4px 0;
-  height: 24px;
-  padding: 0 10px;
-  font-size: 12px;
-  border: none;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: #fff;
-}
-.tag-input-wrapper :deep(.el-input-group__append .el-button:hover) { opacity: 0.9; }
-.tag-input-wrapper :deep(.el-input-group__append .el-button:active) { transform: scale(0.95); }
-
 /* ==================== 编辑器 ==================== */
 .editor-wrapper {
   flex: 1;
@@ -705,13 +474,6 @@ onUnmounted(() => {
 /* ==================== 暗色 ==================== */
 @media (prefers-color-scheme: dark) {
   .note-detail { background: #1a1a2e; }
-  .note-tags-area { background: #1a1a2e; border-bottom-color: #2a2a3e; }
-  .add-btn { color: #8896a8; border-color: #3a3a4e; }
-  .add-btn:hover { color: #8a9ef0; background: rgba(102,126,234,0.15); border-color: #8a9ef0; }
-  .tag-input-wrapper :deep(.el-input__wrapper) { background: #1a1a2e; border-color: #3a3a4e; }
-  .tag-input-wrapper :deep(.el-input__inner) { color: #c8d0e0; }
-  .tag-input-wrapper :deep(.el-input-group__append) { background: #1a1a2e; border-color: #3a3a4e; }
-  .tags-action { color: #8896a8; }
   .editor-wrapper :deep(.md-editor-toolbar) { background: #1f1f1f; border-bottom-color: #3a3a3a; }
   .editor-wrapper :deep(.md-editor-preview) { background: #1a1a1a; color: #e0e0e0; }
   .editor-wrapper :deep(.md-editor-preview-wrapper) { border-left-color: #3a3a3a; }
@@ -719,14 +481,6 @@ onUnmounted(() => {
 
 /* ==================== 响应式 ==================== */
 @media (max-width: 768px) {
-  .note-tags-area { padding: 4px 12px; }
-  .tags-action { width: 100%; justify-content: flex-end; margin-top: 2px; }
-  .note-tag { font-size: 11px; height: 20px; line-height: 18px; max-width: 70px; }
-  .add-btn { font-size: 11px; height: 20px; line-height: 18px; }
-  .tag-input-wrapper { min-width: 130px; }
-  .tag-input-wrapper :deep(.el-input) { height: 20px; }
-  .tag-input-wrapper :deep(.el-input__inner) { height: 18px; font-size: 11px; line-height: 18px; }
-  .tag-input-wrapper :deep(.el-input-group__append .el-button) { height: 20px; padding: 0 6px; font-size: 11px; }
   .editor-wrapper { padding: 0 8px 8px; }
   .editor-wrapper :deep(.md-editor-preview) { padding: 16px 20px !important; }
 }
