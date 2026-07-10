@@ -234,3 +234,55 @@ export interface UpdateTemplateRequest {
   tagIds?: string[]
   isDefault?: boolean
 }
+
+/**
+ * 上传文件响应数据结构
+ */
+export interface UploadResult {
+  /** 文件访问URL */
+  url: string;
+  /** 文件存储路径 */
+  path: string;
+  /** 原始文件名 */
+  fileName: string;
+  /** 文件大小（字节） */
+  fileSize: number;
+  /** MIME类型 */
+  mimeType: string;
+  /** 文件ID（可选） */
+  id?: string;
+  /** 缩略图URL（可选） */
+  thumbnailUrl?: string;
+  /** 图片宽度（可选） */
+  width?: number;
+  /** 图片高度（可选） */
+  height?: number;
+  /** 文件分类（可选） */
+  category?: 'image' | 'document' | 'video' | 'audio' | 'other';
+  /** 文件哈希值（可选） */
+  hash?: string;
+  /** 上传时间（可选） */
+  uploadedAt?: string;
+}
+
+export interface Asset {
+    id: string;
+    user_id: string;
+    note_id: string | null;
+    file_name: string;
+    file_size: number;
+    file_type: string;
+    storage_path: string;
+    storage_bucket: string;
+    width: number | null;
+    height: number | null;
+    thumbnail_path: string | null;
+    thumbnail_width: number | null;
+    thumbnail_height: number | null;
+    file_hash: string | null;
+    ref_count: number;
+    created_at: Date;
+    updated_at: Date;
+    deleted_at: Date | null;
+    sync_version: number;
+}

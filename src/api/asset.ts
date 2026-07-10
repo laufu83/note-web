@@ -1,11 +1,18 @@
 import request from './request'
-
+import type { UploadResult,Asset } from '@/types'
 export const assetApi = {
   upload(file: File, noteId?: string) {
     const formData = new FormData()
     formData.append('file', file)
     if (noteId) formData.append('noteId', noteId)
-    return request.post('/assets/upload', formData, {
+    return request.post<Asset>('/assets/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+    uploadFile(file: File, folder: string) {
+    const formData = new FormData()
+    formData.append('file', file)   
+    return request.post<UploadResult>(`/assets/upload/${folder}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },

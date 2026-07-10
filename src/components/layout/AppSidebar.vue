@@ -60,12 +60,12 @@
         <!-- 我的文件夹 -->
         <div class="nav-section">
           <div 
-            class="section-header" 
+            class="nav-item" 
             @click="goTo('/file/root')"
             :class="{ active: isActive('/file/root') }"
           >
             <div class="nav-icon-wrapper">
-              <el-icon class="section-icon"><Folder /></el-icon>
+              <el-icon class="nav-icon"><Folder /></el-icon>
             </div>
             <span class="section-label">我的文件夹</span>
            
